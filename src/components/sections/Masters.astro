@@ -1,0 +1,56 @@
+---
+import { business } from '../../config/business';
+import { t } from '../../config/texts';
+import type { MasterRow, ServiceRow } from '../../lib/booking/availability';
+
+interface Props {
+  masters: MasterRow[];
+  services: ServiceRow[];
+  masterServices: Map<string, Set<string>>;
+}
+const { masters, services, masterServices } = Astro.props;
+const s = business.sections.masters;
+const serviceName = new Map(services.map((x) => [x.id, x.name]));
+---
+
+<section id="meistari" class="section">
+  <div class="container-page">
+    <h2 class="section-title">{s.title}</h2>
+    <p class="section-intro">{s.intro}</p>
+    <ul class="mt-10 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+      {
+        masters.map((m) => {
+          const offered = [...(masterServices.get(m.id) ?? [])].map((id) => serviceName.get(id)).filter(Boolean);
+          return (
+            <li class="card flex overflow-hidden sm:flex-col">
+              <img
+                src={m.photo_url || '/images/masters/placeholder.svg'}
+                alt={`${m.name} – ${m.title}`}
+                width="480"
+                height="600"
+                loading="lazy"
+                decoding="async"
+                class="aspect-[4/5] w-28 shrink-0 self-start bg-brand-soft object-cover sm:w-full"
+              />
+              <div class="flex min-w-0 flex-1 flex-col p-4 sm:p-5">
+                <h3 class="text-lg font-semibold sm:text-xl">{m.name}</h3>
+                {m.title && <p class="text-sm font-medium text-brand">{m.title}</p>}
+                {m.bio && <p class="mt-2 text-sm text-muted sm:mt-3">{m.bio}</p>}
+                {offered.length > 0 && (
+                  <ul class="mt-4 flex flex-wrap gap-1.5">
+                    {offered.map((name) => (
+                      <li class="rounded-full bg-brand-soft px-2.5 py-1 text-xs font-medium text-brand">{name}</li>
+                    ))}
+                  </ul>
+                )}
+                <a href={`/pieteikties?meistars=${m.id}`} class="btn-outline mt-4 self-start !min-h-10 !px-4 !py-2 text-sm sm:mt-5 sm:!px-5">
+                  {t.masters.book}
+                </a>
+              </div>
+            </li>
+          );
+        })
+      }
+    </ul>
+  </div>
+</section>

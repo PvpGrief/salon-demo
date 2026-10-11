@@ -1,0 +1,32 @@
+---
+import { business } from '../../config/business';
+const s = business.sections.reviews;
+---
+
+{
+  business.reviews.length > 0 && (
+    <section id="atsauksmes" class="section">
+      <div class="container-page">
+        <h2 class="section-title">{s.title}</h2>
+        <p class="section-intro">{s.intro}</p>
+        <ul class="mt-10 grid gap-6 md:grid-cols-3">
+          {business.reviews.map((r) => (
+            <li class="card p-6">
+              <figure>
+                <p class="flex gap-0.5 text-accent" aria-label={`Vērtējums: ${r.rating} no 5`}>
+                  {Array.from({ length: 5 }, (_, i) => (
+                    <svg class:list={['size-5', i < r.rating ? 'opacity-100' : 'opacity-25']} viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                      <path d="M10 1.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8L10 14.9l-5.2 2.7 1-5.8L1.5 7.7l5.9-.9z" />
+                    </svg>
+                  ))}
+                </p>
+                <blockquote class="mt-4 text-ink/90">„{r.text}“</blockquote>
+                <figcaption class="mt-4 text-sm font-semibold">{r.name}</figcaption>
+              </figure>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </section>
+  )
+}

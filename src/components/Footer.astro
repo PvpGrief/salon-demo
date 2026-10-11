@@ -1,0 +1,39 @@
+---
+import { business } from '../config/business';
+import { t } from '../config/texts';
+import { telHref } from '../lib/format';
+
+const year = new Date().getFullYear();
+const socials = Object.entries(business.social).filter(([, url]) => url) as [string, string][];
+const socialNames: Record<string, string> = { instagram: 'Instagram', facebook: 'Facebook', tiktok: 'TikTok' };
+---
+
+<footer class="border-t border-line bg-surface">
+  <div class="container-page grid gap-8 py-10 text-sm sm:grid-cols-3">
+    <div>
+      <p class="font-display text-lg font-semibold">{business.name}</p>
+      <p class="mt-2 text-muted">
+        {business.contact.address.street}, {business.contact.address.city}, {business.contact.address.postalCode}
+      </p>
+    </div>
+    <div>
+      <p><a class="hover:text-brand" href={telHref(business.contact.phone)}>{business.contact.phone}</a></p>
+      <p class="mt-1"><a class="hover:text-brand" href={`mailto:${business.contact.email}`}>{business.contact.email}</a></p>
+      {
+        socials.length > 0 && (
+          <p class="mt-3 flex flex-wrap gap-3">
+            {socials.map(([key, url]) => (
+              <a class="font-medium text-brand hover:underline" href={url} rel="noopener" target="_blank">
+                {socialNames[key] ?? key}
+              </a>
+            ))}
+          </p>
+        )
+      }
+    </div>
+    <div class="sm:text-right">
+      <p><a class="hover:text-brand" href="/privatuma-politika">{t.footer.privacy}</a></p>
+      <p class="mt-1 text-muted">© {year} {business.legal.companyName}. {t.footer.rights}</p>
+    </div>
+  </div>
+</footer>

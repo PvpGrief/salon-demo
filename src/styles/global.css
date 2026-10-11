@@ -1,0 +1,128 @@
+/*
+ * Global styles. Brand colors come from src/config/business.ts (theme) and are
+ * injected as CSS variables in src/layouts/Base.astro – do not hard-code
+ * colors here. Fonts are self-hosted (no Google Fonts requests → GDPR friendly).
+ * To change fonts: install another @fontsource package and update the two
+ * imports and --font-sans / --font-display below.
+ */
+@import '@fontsource-variable/inter';
+@import '@fontsource-variable/playfair-display';
+@import 'tailwindcss';
+
+@theme inline {
+  --color-brand: var(--brand);
+  --color-brand-dark: var(--brand-dark);
+  --color-brand-soft: var(--brand-soft);
+  --color-accent: var(--accent);
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-ink: var(--ink);
+  --color-muted: var(--muted);
+  --color-line: var(--line);
+  --font-sans: 'Inter Variable', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-display: 'Playfair Display Variable', Georgia, 'Times New Roman', serif;
+}
+
+:root {
+  /* fallbacks – real values are injected from business.theme */
+  --brand: #8a4b5c;
+  --accent: #c59d5f;
+  --bg: #fbf8f6;
+  --surface: #ffffff;
+  --ink: #2b2326;
+  --muted: #6f6468;
+  --brand-dark: color-mix(in oklab, var(--brand) 80%, black);
+  --brand-soft: color-mix(in oklab, var(--brand) 10%, white);
+  --line: color-mix(in oklab, var(--ink) 12%, transparent);
+  color-scheme: light;
+}
+
+html {
+  scroll-behavior: smooth;
+  scroll-padding-top: 5rem;
+  -webkit-text-size-adjust: 100%;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+h1,
+h2,
+h3 {
+  font-family: var(--font-display);
+  letter-spacing: -0.01em;
+  text-wrap: balance;
+}
+
+:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+/* Reusable building blocks (usable as classes and with @apply). */
+@utility container-page {
+  @apply mx-auto w-full max-w-6xl px-4 sm:px-6;
+}
+@utility section {
+  @apply py-16 sm:py-24;
+}
+@utility section-title {
+  @apply text-3xl font-semibold sm:text-4xl;
+}
+@utility section-intro {
+  @apply mt-3 max-w-2xl text-base text-muted sm:text-lg;
+}
+@utility btn {
+  @apply inline-flex min-h-11 items-center justify-center gap-2 rounded-full px-6 py-2.5 text-base font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-50;
+}
+@utility btn-primary {
+  @apply btn bg-brand text-white hover:bg-brand-dark;
+}
+@utility btn-outline {
+  @apply btn border border-brand/30 bg-surface text-brand hover:border-brand hover:bg-brand-soft;
+}
+@utility btn-ghost {
+  @apply btn text-brand hover:bg-brand-soft;
+}
+@utility card {
+  @apply rounded-2xl border border-line bg-surface shadow-[0_1px_2px_rgb(0_0_0/0.04)];
+}
+@utility label {
+  @apply mb-1.5 block text-sm font-medium text-ink;
+}
+@utility input {
+  @apply block min-h-11 w-full rounded-xl border border-line bg-surface px-3.5 py-2.5 text-base text-ink placeholder:text-muted/70 focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/25;
+}
+@utility hint {
+  @apply mt-1 text-sm text-muted;
+}
+@utility error-text {
+  @apply mt-1 text-sm font-medium text-red-700;
+}
+@utility alert-error {
+  @apply rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800;
+}
+@utility alert-success {
+  @apply rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900;
+}
+@utility alert-info {
+  @apply rounded-xl border border-line bg-brand-soft px-4 py-3 text-sm text-ink;
+}

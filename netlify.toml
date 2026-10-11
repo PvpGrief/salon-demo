@@ -1,0 +1,9 @@
+# Netlify (alternative hosting). Set the environment variables from
+# .env.example in Site configuration → Environment variables.
+[build]
+  command = "npm run build"
+  publish = "dist"
+
+[build.environment]
+  DEPLOY_TARGET = "netlify"
+  NODE_VERSION = "22"

@@ -1,0 +1,74 @@
+---
+/** Customer self-cancel page (link from the confirmation e-mail). */
+import { actions } from 'astro:actions';
+import Base from '../../layouts/Base.astro';
+import { business } from '../../config/business';
+import { t } from '../../config/texts';
+import { telHref } from '../../lib/format';
+import { serviceClient } from '../../lib/supabase';
+import { formatDateWithWeekday, toRigaDate, toRigaTime } from '../../lib/time';
+
+const token = Astro.params.token ?? '';
+const valid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(token);
+const result = Astro.getActionResult(actions.cancelBooking);
+
+type Info = { service_name: string; master_name: string; starts_at: string; status: string; can_cancel: boolean };
+let booking: Info | null = null;
+if (valid) {
+  const { data } = await serviceClient().rpc('get_booking_by_token', { p_token: token });
+  booking = (Array.isArray(data) ? data[0] : data) ?? null;
+}
+const start = booking ? new Date(booking.starts_at) : null;
+---
+
+<Base title={t.cancel.title} noindex>
+  <section class="container-page py-10 sm:py-16">
+    <div class="card mx-auto max-w-lg p-6 sm:p-8">
+      <h1 class="text-2xl font-semibold sm:text-3xl">{t.cancel.title}</h1>
+
+      {!booking && <p class="alert-error mt-5">{t.cancel.notFound}</p>}
+
+      {
+        booking && start && (
+          <dl class="mt-5 grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5">
+            <dt class="text-muted">{t.booking.service}</dt>
+            <dd class="font-medium">{booking.service_name}</dd>
+            <dt class="text-muted">{t.booking.master}</dt>
+            <dd class="font-medium">{booking.master_name}</dd>
+            <dt class="text-muted">{t.booking.date}</dt>
+            <dd class="font-medium">{formatDateWithWeekday(toRigaDate(start))}</dd>
+            <dt class="text-muted">{t.booking.time}</dt>
+            <dd class="font-medium">{toRigaTime(start)}</dd>
+          </dl>
+        )
+      }
+
+      {result && !result.error && <p class="alert-success mt-6">{t.cancel.done}</p>}
+      {result?.error && <p class="alert-error mt-6">{result.error.message}</p>}
+
+      {
+        booking && !result?.data && (
+          booking.status === 'cancelled' ? (
+            <p class="alert-info mt-6">{t.cancel.alreadyCancelled}</p>
+          ) : booking.can_cancel ? (
+            <form method="POST" action={actions.cancelBooking} class="mt-6">
+              <input type="hidden" name="token" value={token} />
+              <p class="font-medium">{t.cancel.confirmQuestion}</p>
+              <div class="mt-4 flex flex-col gap-3 sm:flex-row">
+                <button type="submit" class="btn-primary">{t.cancel.confirm}</button>
+                <a href="/" class="btn-outline">{t.cancel.keep}</a>
+              </div>
+            </form>
+          ) : (
+            <p class="alert-info mt-6">
+              {t.cancel.tooLate}{' '}
+              <a class="font-semibold text-brand" href={telHref(business.contact.phone)}>
+                {business.contact.phone}
+              </a>
+            </p>
+          )
+        )
+      }
+    </div>
+  </section>
+</Base>

@@ -1,0 +1,31 @@
+---
+import Base from '../layouts/Base.astro';
+import Hero from '../components/sections/Hero.astro';
+import Services from '../components/sections/Services.astro';
+import Masters from '../components/sections/Masters.astro';
+import Gallery from '../components/sections/Gallery.astro';
+import Reviews from '../components/sections/Reviews.astro';
+import Contact from '../components/sections/Contact.astro';
+import { loadCatalogue, type Catalogue } from '../lib/booking/availability';
+import { localBusinessJsonLd } from '../lib/seo';
+import { publicClient } from '../lib/supabase';
+
+let catalogue: Catalogue | null = null;
+try {
+  catalogue = await loadCatalogue(publicClient());
+} catch (e) {
+  // The page still renders (texts, contacts, map) if the database is unreachable.
+  console.error('[index] catalogue', e);
+}
+const services = catalogue?.services ?? [];
+const masters = catalogue?.masters ?? [];
+---
+
+<Base jsonLd={localBusinessJsonLd(services, masters)}>
+  <Hero />
+  <Services services={services} />
+  {masters.length > 0 && <Masters masters={masters} services={services} masterServices={catalogue!.masterServices} />}
+  <Gallery />
+  <Reviews />
+  <Contact />
+</Base>

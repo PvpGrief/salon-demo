@@ -1,0 +1,72 @@
+---
+import { business } from '../../config/business';
+import { t } from '../../config/texts';
+import { telHref } from '../../lib/format';
+import { openingHoursRows } from '../../lib/seo';
+
+const c = business.contact;
+const s = business.sections.contact;
+// OpenStreetMap embed: no cookies, no API key.
+const dLng = 0.0035 * 2 ** (16 - c.mapZoom);
+const dLat = dLng / 1.8;
+const bbox = [c.geo.lng - dLng, c.geo.lat - dLat, c.geo.lng + dLng, c.geo.lat + dLat].map((n) => n.toFixed(5)).join('%2C');
+const mapSrc = `https://www.openstreetmap.org/export/embed.html?bbox=${bbox}&layer=mapnik&marker=${c.geo.lat}%2C${c.geo.lng}`;
+const mapLink = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${c.address.street}, ${c.address.city}`)}`;
+const hours = openingHoursRows();
+---
+
+<section id="kontakti" class="section bg-surface">
+  <div class="container-page grid gap-10 lg:grid-cols-2">
+    <div>
+      <h2 class="section-title">{s.title}</h2>
+      <p class="section-intro">{s.intro}</p>
+
+      <dl class="mt-8 space-y-5">
+        <div>
+          <dt class="text-sm font-semibold text-muted">{t.contact.address}</dt>
+          <dd class="mt-1 text-lg">
+            {c.address.street}, {c.address.city}, {c.address.postalCode}
+            {c.directionsNote && <span class="mt-1 block text-sm text-muted">{c.directionsNote}</span>}
+            <a href={mapLink} target="_blank" rel="noopener" class="mt-1 inline-block text-sm font-medium text-brand underline">
+              {t.contact.openMap}
+            </a>
+          </dd>
+        </div>
+        <div>
+          <dt class="text-sm font-semibold text-muted">{t.contact.phone}</dt>
+          <dd class="mt-1 text-lg"><a href={telHref(c.phone)} class="font-medium hover:text-brand">{c.phone}</a></dd>
+        </div>
+        <div>
+          <dt class="text-sm font-semibold text-muted">{t.contact.email}</dt>
+          <dd class="mt-1 text-lg"><a href={`mailto:${c.email}`} class="font-medium hover:text-brand">{c.email}</a></dd>
+        </div>
+        <div>
+          <dt class="text-sm font-semibold text-muted">{t.contact.hours}</dt>
+          <dd class="mt-2">
+            <table class="w-full max-w-sm text-base">
+              <tbody>
+                {
+                  hours.map((h) => (
+                    <tr class="border-b border-line last:border-0">
+                      <th scope="row" class="py-1.5 pr-4 text-left font-normal">{h.label}</th>
+                      <td class:list={['py-1.5 text-right tabular-nums', h.value === t.contact.closed && 'text-muted']}>{h.value}</td>
+                    </tr>
+                  ))
+                }
+              </tbody>
+            </table>
+          </dd>
+        </div>
+      </dl>
+      <a href="/pieteikties" class="btn-primary mt-8">{t.nav.book}</a>
+    </div>
+    <div class="min-h-80 overflow-hidden rounded-2xl border border-line lg:min-h-full">
+      <iframe
+        title={t.contact.mapTitle}
+        src={mapSrc}
+        loading="lazy"
+        referrerpolicy="no-referrer"
+        class="h-full min-h-80 w-full border-0"></iframe>
+    </div>
+  </div>
+</section>

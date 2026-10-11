@@ -1,0 +1,16 @@
+// Cloudflare Workers configuration (default hosting target).
+// Secrets (SUPABASE_*, BREVO_API_KEY) are NOT stored here – set them in the
+// Cloudflare dashboard → Workers → your worker → Settings → Variables and Secrets,
+// or with `npx wrangler secret put NAME`. See README.md.
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "salon-booking",
+  "main": "@astrojs/cloudflare/entrypoints/server",
+  "compatibility_date": "2026-09-01",
+  "compatibility_flags": ["nodejs_compat"],
+  "assets": {
+    "directory": "./dist",
+    "binding": "ASSETS"
+  },
+  "observability": { "enabled": true }
+}

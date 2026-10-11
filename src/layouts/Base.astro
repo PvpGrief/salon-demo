@@ -1,0 +1,76 @@
+---
+/**
+ * Public page layout: <head> with SEO + Open Graph, brand colors, header,
+ * footer and the cookie/data notice.
+ */
+import '../styles/global.css';
+import { business } from '../config/business';
+import Header from '../components/Header.astro';
+import Footer from '../components/Footer.astro';
+import CookieNotice from '../components/CookieNotice.astro';
+
+interface Props {
+  /** Page title; the business name is appended unless fullTitle is set. */
+  title?: string;
+  fullTitle?: boolean;
+  description?: string;
+  noindex?: boolean;
+  /** schema.org JSON-LD object(s) */
+  jsonLd?: object | object[];
+}
+
+const { title, fullTitle = false, description = business.seo.description, noindex = false, jsonLd } = Astro.props;
+const pageTitle = !title ? business.seo.title : fullTitle ? title : `${title} | ${business.shortName}`;
+const site = Astro.site ?? new URL(business.siteUrl);
+const canonical = new URL(Astro.url.pathname, site).href;
+const ogImage = new URL(business.seo.ogImage, site).href;
+const th = business.theme;
+const themeCss = `:root{--brand:${th.primary};--accent:${th.accent};--bg:${th.background};--surface:${th.surface};--ink:${th.text};--muted:${th.muted};}`;
+---
+
+<!doctype html>
+<html lang="lv">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{pageTitle}</title>
+    <meta name="description" content={description} />
+    <link rel="canonical" href={canonical} />
+    {noindex && <meta name="robots" content="noindex" />}
+    <link rel="icon" href={business.favicon} type="image/svg+xml" />
+    <meta name="theme-color" content={th.primary} />
+
+    <meta property="og:type" content="website" />
+    <meta property="og:locale" content="lv_LV" />
+    <meta property="og:site_name" content={business.name} />
+    <meta property="og:title" content={pageTitle} />
+    <meta property="og:description" content={description} />
+    <meta property="og:url" content={canonical} />
+    <meta property="og:image" content={ogImage} />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta name="twitter:card" content="summary_large_image" />
+
+    <style is:inline set:html={themeCss} />
+    {
+      jsonLd &&
+        (Array.isArray(jsonLd) ? jsonLd : [jsonLd]).map((obj) => (
+          <script type="application/ld+json" is:inline set:html={JSON.stringify(obj)} />
+        ))
+    }
+    <slot name="head" />
+  </head>
+  <body class="flex min-h-screen flex-col">
+    <a
+      href="#saturs"
+      class="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-50 focus:rounded-lg focus:bg-surface focus:px-4 focus:py-2"
+      >Pāriet uz saturu</a
+    >
+    <Header />
+    <main id="saturs" class="flex-1">
+      <slot />
+    </main>
+    <Footer />
+    <CookieNotice />
+  </body>
+</html>
