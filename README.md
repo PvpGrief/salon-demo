@@ -1,1 +1,291 @@
-# salon-demo
+# Salon booking website template (Latvia)
+
+A fast, mobile-first website with online booking for small beauty salons and
+other appointment-based businesses in Latvia. Visitor-facing text and the
+admin panel are in Latvian, and all times use Europe/Riga.
+
+**Stack:** [Astro 7](https://astro.build) (server-rendered, with small React
+islands) + [Supabase](https://supabase.com) (Postgres, Auth, Storage) +
+Tailwind CSS. It deploys to **Cloudflare Workers** by default, or to
+**Netlify**; both free tiers allow commercial use.
+
+Why this stack:
+- The public pages ship almost no JavaScript, so they load fast and are easy for search engines.
+- Supabase's free tier, EU (Frankfurt) region and Row Level Security cover what the site needs.
+- Hosting costs nothing until the site gets serious traffic.
+
+---
+
+## Contents
+
+1. [Features](#features)
+2. [Project structure](#project-structure)
+3. [Run it locally](#run-it-locally)
+4. [Environment variables](#environment-variables)
+5. [Set up the production Supabase project](#set-up-the-production-supabase-project)
+6. [Create the admin account](#create-the-admin-account)
+7. [Deploy to Cloudflare (default)](#deploy-to-cloudflare-default)
+8. [Deploy to Netlify (alternative)](#deploy-to-netlify-alternative)
+9. [E-mail with Brevo (optional)](#e-mail-with-brevo-optional)
+10. [Customize for a new client](#customize-for-a-new-client)
+11. [Tests](#tests)
+12. [How booking safety works](#how-booking-safety-works)
+13. [Privacy / GDPR notes](#privacy--gdpr-notes)
+14. [Operations and troubleshooting](#operations-and-troubleshooting)
+
+---
+
+## Features
+
+**Public website** (`/`)
+- One page with these sections: hero, services and prices, masters, gallery, reviews, and contact details with opening hours and a map (OpenStreetMap, so no cookies).
+- SEO: title, description, canonical URL, Open Graph tags, schema.org `LocalBusiness` JSON-LD, `sitemap.xml` and `robots.txt`.
+- Accessible: semantic HTML, keyboard focus styles, a skip link and reduced-motion support.
+- An informational data notice (the site uses only strictly necessary cookies) and a Latvian privacy-policy template (`/privatuma-politika`).
+
+**Booking** (`/pieteikties`)
+- The customer picks a service, then a master or "Jebkurš brīvais meistars" (any free master), then a date and time, and then enters contact details.
+- Free slots are calculated from each master's working hours, the service duration, existing bookings, master blocks, closed days and the booking rules (slot step, buffer, minimum notice, how far ahead).
+- Double booking is impossible: the database refuses overlapping bookings even when two requests arrive at the same moment.
+- A confirmation screen with "add to calendar" (Google Calendar and `.ics`).
+- If a Brevo key is set, the customer gets a confirmation e-mail with a cancel link (`/atcelt/<token>`) and the owner gets a copy.
+- A public free/busy view (`/pieejamiba`) shows which masters are free or busy and when, without any customer data.
+
+**Admin panel** (`/admin`, password protected, works well on phones)
+- Bookings by day or week, filtered by master, with customer details and tap-to-call.
+- Create (e.g. phone bookings), edit, reschedule, cancel, restore and delete bookings, with suggested free times.
+- Block the whole salon for days (holidays) or one master for days or time ranges (vacation, sick day, lunch).
+- Manage masters (photo upload, services offered, weekly working hours with a break) and services (duration, price, "no …" ("from …") prices, categories).
+- Booking rules, password change, and GDPR clean-up of old customer data.
+
+---
+
+## Project structure
+
+```
+src/
+  config/business.ts      ← ALL client content: name, contacts, hours, colors, texts, gallery, reviews, SEO, legal
+  config/texts.ts         ← generic Latvian UI texts (buttons, labels, error messages)
+  pages/                  ← routes: index, pieteikties, pieejamiba, privatuma-politika, atcelt/[token], admin/*
+  components/sections/    ← homepage sections (Hero, Services, Masters, Gallery, Reviews, Contact)
+  components/booking/     ← BookingWizard.tsx (React island)
+  components/admin/       ← admin form pieces
+  actions/                ← server actions: public booking/cancel, admin CRUD
+  lib/booking/slots.ts    ← ⚠ slot calculation (pure functions, unit-tested)
+  lib/booking/availability.ts ← loads data for the slot calculation
+  lib/time.ts             ← Europe/Riga helpers, dd.mm.yyyy / 24h formatting
+  lib/email.ts            ← optional Brevo e-mails
+  middleware.ts           ← protects /admin, security headers
+supabase/
+  migrations/             ← database schema, booking functions, RLS, storage
+  seed.sql                ← demo data (3 masters, 5 services, bookings around today)
+  config.toml             ← local Supabase settings
+public/images/            ← logo, hero, master photos, gallery, og-image.png (replace per client)
+scripts/create-admin.mjs  ← creates the admin user
+tests/unit/               ← slot/time/format unit tests (no database needed)
+tests/db/                 ← database tests: RLS, double booking under concurrency, TS↔DB parity
+```
+
+---
+
+## Run it locally
+
+**You need:** Node.js 22.12 or newer, and Docker (for the local Supabase).
+
+```bash
+npm install
+npx supabase start          # first run downloads the Docker images (a few minutes)
+cp .env.example .env        # then paste the local keys, see below
+npm run db:reset            # applies migrations + demo seed
+npm run create-admin -- admin@example.lv "Demo-Parole-2026"
+npm run dev                 # http://localhost:4321
+```
+
+`npx supabase start` (or `npx supabase status`) prints the local values to put in `.env`:
+
+| `.env` variable | value from `supabase status` |
+|---|---|
+| `SUPABASE_URL` | `API_URL` (http://127.0.0.1:54321) |
+| `SUPABASE_ANON_KEY` | `ANON_KEY` |
+| `SUPABASE_SERVICE_ROLE_KEY` | `SERVICE_ROLE_KEY` |
+
+- Website: http://localhost:4321
+- Admin: http://localhost:4321/admin (log in as `admin@example.lv` / `Demo-Parole-2026`)
+- Local database UI (Supabase Studio): http://127.0.0.1:54323
+- E-mails sent by Supabase Auth locally: http://127.0.0.1:54324
+
+The dev server runs in Cloudflare's `workerd` runtime and reads `.env`. If you
+prefer plain Node.js: `DEPLOY_TARGET=node npm run dev`.
+
+`npm run db:reset` wipes the local database back to the demo seed. Run
+`create-admin` again afterwards.
+
+---
+
+## Environment variables
+
+| Name | Required | Where to find it | Notes |
+|---|---|---|---|
+| `SUPABASE_URL` | yes | Supabase → Project Settings → Data API → Project URL | |
+| `SUPABASE_ANON_KEY` | yes | Supabase → Project Settings → API Keys → `anon` (legacy) or the **publishable** key | Safe for public data; RLS applies. |
+| `SUPABASE_SERVICE_ROLE_KEY` | yes | Same page → `service_role` (legacy) or a **secret** key | **Server only, never share it.** Used only to create bookings and for the cancel link. |
+| `BREVO_API_KEY` | no | Brevo → SMTP & API → API Keys | Leave empty to switch e-mails off. |
+| `SITE_URL` | no | | Overrides `business.siteUrl` for canonical/OG URLs. |
+| `DEPLOY_TARGET` | no | | `cloudflare` (default), `netlify` or `node`. |
+
+`.env` is git-ignored. `.env.example` lists every variable.
+
+---
+
+## Set up the production Supabase project
+
+1. Create a project at [supabase.com](https://supabase.com). Region: **EU Central (Frankfurt)**. Save the database password.
+2. **Authentication → Sign In / Providers**:
+   - Keep the **Email** provider **enabled**; the admin logs in with e-mail and password.
+   - Turn **off "Allow new users to sign up"**, so there is no public registration.
+3. Apply the database schema from your computer:
+   ```bash
+   npx supabase login
+   npx supabase link --project-ref <your-project-ref>   # ref = the xxxx in https://xxxx.supabase.co
+   npm run db:push                                       # applies supabase/migrations/*
+   ```
+   Alternative without the CLI: open **SQL Editor** and run each file in `supabase/migrations/` in name order.
+4. **Demo data (only for a demo site!):** `npx supabase db push --include-seed`, or paste `supabase/seed.sql` into the SQL Editor. For a real client, skip this and add services and masters in `/admin`.
+5. Copy the URL and keys into `.env` (for scripts) and into your hosting environment (see below).
+
+The migrations create:
+- all tables with RLS;
+- the overlap constraint that prevents double booking;
+- the booking functions;
+- the `media` storage bucket for master photos.
+
+---
+
+## Create the admin account
+
+There is no sign-up page. Run the script with the target project's keys in `.env`:
+
+```bash
+npm run create-admin -- owner@salons.lv              # generates and prints a strong password
+npm run create-admin -- owner@salons.lv "Own-Password-123"
+```
+
+Running it again for the same e-mail resets the password. The owner can change
+the password later in **/admin → Iestatījumi**. To add a second admin, run the
+script with another e-mail.
+
+---
+
+## Deploy to Cloudflare (default)
+
+The site runs as a Cloudflare **Worker** with static assets. The free plan
+includes 100,000 requests per day and allows commercial use.
+
+**Option A – connect the Git repository (recommended, auto-deploys on push)**
+1. Cloudflare dashboard → **Workers & Pages → Create → Import a repository**, and pick this repo.
+2. Build command: `npm run build`. Deploy command: `npx wrangler deploy`.
+3. After the first deploy, open the Worker → **Settings → Variables and Secrets** and add `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY` and optionally `BREVO_API_KEY`. Use type **Secret** for the keys. Then redeploy.
+4. **Settings → Domains & Routes → Add custom domain** (e.g. `www.salons.lv`).
+
+**Option B – deploy from your computer**
+```bash
+npx wrangler login
+npx wrangler secret put SUPABASE_URL
+npx wrangler secret put SUPABASE_ANON_KEY
+npx wrangler secret put SUPABASE_SERVICE_ROLE_KEY
+npx wrangler secret put BREVO_API_KEY      # optional
+npm run deploy
+```
+
+Per client, change `"name"` in `wrangler.jsonc` (the Worker name) and
+`siteUrl` in `src/config/business.ts`.
+
+---
+
+## Deploy to Netlify (alternative)
+
+`netlify.toml` is included and sets `DEPLOY_TARGET=netlify`.
+1. Netlify → **Add new site → Import an existing project**, and pick the repo. The build settings are read from `netlify.toml`.
+2. **Site configuration → Environment variables**: add the variables from the table above.
+3. Add your domain under **Domain management**.
+4. In `src/config/business.ts → legal.processors`, replace "Cloudflare, Inc." with "Netlify, Inc.".
+
+---
+
+## E-mail with Brevo (optional)
+
+Without `BREVO_API_KEY`, everything works and no e-mails are sent. The
+confirmation screen tells the customer to save the details.
+
+To turn e-mails on:
+1. Create a free account at [brevo.com](https://www.brevo.com) (EU provider, about 300 e-mails a day free).
+2. **Senders, Domains & Dedicated IPs**: add and verify the sender address or, better, the client's domain (add the DNS records Brevo shows, for good deliverability).
+3. **SMTP & API → API Keys → Generate a new API key**, and set it as `BREVO_API_KEY`.
+4. In `src/config/business.ts → email`, set `fromAddress` to the verified sender and `ownerNotifyTo` to the owner's address (or `''` for no copies).
+
+E-mails sent:
+- To the customer: a booking confirmation with a cancel link. Also, when the admin ticks "Nosūtīt…" or "Paziņot…", a rescheduled or cancelled notice.
+- To the owner: a copy of each new online booking and of each self-cancellation.
+
+`/admin/iestatijumi` shows whether e-mail is switched on.
+
+---
+
+## Customize for a new client
+
+See **[NEW_CLIENT_CHECKLIST.md](NEW_CLIENT_CHECKLIST.md)**, a step-by-step list that takes about an hour. In short:
+
+1. Edit `src/config/business.ts` (name, contacts, hours, colors, texts, gallery, reviews, SEO, legal).
+2. Replace the images in `public/images/`, then run `npm run og-image` (or replace `og-image.png`).
+3. Create a new Supabase project, push the migrations and create the admin.
+4. Deploy with that project's environment variables.
+5. Log in to `/admin` and add services, masters, working hours and closed days.
+
+If you use Claude Code, read **CLAUDE.md** for the project rules. For example:
+"Configure this template for client X: …".
+
+---
+
+## Tests
+
+```bash
+npm test             # unit tests: slot calculation, Riga time zone / DST, formatting (no DB needed)
+npx supabase start
+npm run test:db      # database tests against the local Supabase
+```
+
+The database tests cover:
+- **RLS:** anonymous visitors and logged-in non-admins cannot read customer data or change bookings; admins can.
+- **Double booking:** 12 parallel connections booking the same slot produce exactly one booking. "Any master" requests in parallel get one booking per master. Overlapping times collide correctly.
+- **Booking rules:** working hours, breaks, closed days, blocks, buffer, notice, horizon, per-phone limit, cancel link.
+- **Parity:** every time the website offers is accepted by the database, and every time it doesn't offer is refused.
+
+---
+
+## How booking safety works
+
+- The website computes free slots in TypeScript (`src/lib/booking/slots.ts`) to show to the visitor.
+- The booking itself goes through the `create_booking()` Postgres function, called by the server with the service-role key. It re-checks every rule.
+- The `bookings_no_overlap` **exclusion constraint** makes overlapping confirmed bookings of one master impossible at the database level. This also covers admin edits and simultaneous requests.
+- The public cannot read the `bookings` table at all (RLS). The availability view uses `get_public_schedule()`, which returns only time ranges.
+- Spam protection: a honeypot field, a per-IP rate limit, and a maximum number of active future bookings per phone number (a setting).
+
+---
+
+## Privacy / GDPR notes
+
+- The privacy policy (`/privatuma-politika`) is a **template**. Fill in `business.legal`, check the processors list, and have the final text reviewed for each client.
+- Customer data is stored in the EU (Supabase Frankfurt). Sign the data processing agreements (DPA) that Supabase, Cloudflare/Netlify and Brevo offer in their dashboards or terms.
+- Retention: old bookings can be anonymized in **/admin → Iestatījumi → Dzēst vecos datus** (the period is a setting, 24 months by default). You can automate it with Supabase `pg_cron`: `select cron.schedule('anonymize', '0 3 * * 0', 'select public.anonymize_old_bookings()');`
+- No analytics or marketing cookies are used. If you add any, replace the informational notice with a real consent banner.
+
+---
+
+## Operations and troubleshooting
+
+- **Supabase free tier pausing:** free projects are paused after about a week without activity. A site with regular visitors stays active. For a production client, the Pro plan (backups included) is the safe choice, or check the project weekly.
+- **Backups:** on the free tier, export regularly with `npx supabase db dump --data-only > backup.sql` (after `supabase link`).
+- **"Šim meistaram šajā laikā jau ir cits pieraksts"** in the admin panel means the database refused an overlap. Pick another time or master.
+- **The admin login says the password is wrong**, but the password is right: check that the Email provider is enabled in Supabase Auth, and that `create-admin` ran against the same project as the site.
+- **No slots shown:** check the master's working hours, that the master is active and has the service ticked, closed days, and the "minimum notice" setting.
+- **Photos do not upload:** check that the migrations ran (they create the `media` bucket). The maximum size is 5 MB, as JPG, PNG, WebP or AVIF.

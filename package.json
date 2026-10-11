@@ -14,7 +14,9 @@
     "db:stop": "supabase stop",
     "db:reset": "supabase db reset",
     "create-admin": "node --env-file-if-exists=.env scripts/create-admin.mjs",
-    "deploy": "astro build && wrangler deploy"
+    "deploy": "astro build && wrangler deploy",
+    "db:push": "supabase db push",
+    "og-image": "node scripts/make-og-image.mjs"
   },
   "dependencies": {
     "@astrojs/cloudflare": "^14.3.4",
