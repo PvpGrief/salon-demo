@@ -15,6 +15,14 @@ import { SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY, SUPABASE_URL } from 'astr
 const noSession = { auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false } };
 
 /**
+ * Accept common copy-paste variants of the project URL:
+ * trailing slash and the REST endpoint (…/rest/v1/) are removed.
+ */
+function normalizeUrl(value: string | undefined): string {
+  return (value ?? '').trim().replace(/\/+$/, '').replace(/\/rest\/v1$/, '');
+}
+
+/**
  * Problems with the Supabase environment variables (names only, never values).
  * Empty list = configured. Checked on every request by src/middleware.ts.
  */
@@ -24,7 +32,7 @@ export function configProblems(): string[] {
   for (const [name, value] of Object.entries(required)) {
     if (!value?.trim()) problems.push(`${name} is missing`);
   }
-  if (SUPABASE_URL?.trim() && !/^https?:\/\/[^/\s]+\/?$/.test(SUPABASE_URL.trim())) {
+  if (SUPABASE_URL?.trim() && !/^https?:\/\/[^/\s]+$/.test(normalizeUrl(SUPABASE_URL))) {
     problems.push('SUPABASE_URL must look like https://xxxx.supabase.co (Project Settings → Data API → Project URL)');
   }
   return problems;
@@ -35,7 +43,7 @@ function env(value: string | undefined, name: string): string {
   return value.trim();
 }
 
-const url = () => env(SUPABASE_URL, 'SUPABASE_URL').replace(/\/$/, '');
+const url = () => normalizeUrl(env(SUPABASE_URL, 'SUPABASE_URL'));
 
 export function publicClient(): SupabaseClient {
   return createClient(url(), env(SUPABASE_ANON_KEY, 'SUPABASE_ANON_KEY'), noSession);
