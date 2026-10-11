@@ -228,7 +228,8 @@ Per client, change `"name"` in `wrangler.jsonc` (the Worker name) and
 | `Could not detect a directory containing static files` | Wrangler found no `wrangler.jsonc`. The deployed branch has no code (e.g. `main` is still empty), or the root directory is wrong. Point the production branch at the branch with the code, or merge it into `main`. |
 | `Missing entry-point to Worker script or to assets directory` | The deploy ran without a build. Set the build command to `npm run build`. |
 | Name mismatch between Worker and config | Make the dashboard Worker name and `"name"` in `wrangler.jsonc` identical. |
-| Site loads but shows errors / no services | The runtime secrets are missing. Add them under **Variables and Secrets** and redeploy. |
+| **500** on every page (older versions) or the page **"Vietne vēl nav pilnībā konfigurēta"** | The Worker does not receive the Supabase secrets. The page lists which ones. Add them under **Settings → Variables and Secrets** (not "Build variables"), with exactly these names, type Secret, then redeploy. |
+| Site loads but services/masters are empty | Wrong key or URL, or no data yet. Check the Worker logs (**Observability → Logs**), and check that the migrations ran and data exists. |
 
 ---
 

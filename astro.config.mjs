@@ -31,9 +31,11 @@ export default defineConfig({
   security: { checkOrigin: true },
   env: {
     schema: {
-      SUPABASE_URL: envField.string({ context: 'server', access: 'secret' }),
-      SUPABASE_ANON_KEY: envField.string({ context: 'server', access: 'secret' }),
-      SUPABASE_SERVICE_ROLE_KEY: envField.string({ context: 'server', access: 'secret' }),
+      // Required at runtime, but declared optional so a missing value shows a
+      // clear "not configured" page (src/middleware.ts) instead of a bare 500.
+      SUPABASE_URL: envField.string({ context: 'server', access: 'secret', optional: true }),
+      SUPABASE_ANON_KEY: envField.string({ context: 'server', access: 'secret', optional: true }),
+      SUPABASE_SERVICE_ROLE_KEY: envField.string({ context: 'server', access: 'secret', optional: true }),
       BREVO_API_KEY: envField.string({ context: 'server', access: 'secret', optional: true }),
     },
     validateSecrets: false,
