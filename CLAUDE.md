@@ -79,6 +79,7 @@ and optionally `BREVO_API_KEY`. Get the local values from `npx supabase status`.
 ## Conventions and gotchas
 
 - **Astro 7.** `compressHTML: true` is set in `astro.config.mjs` so templates keep normal HTML whitespace rules.
+- **Cloudflare deploy:** `npm run build` generates `dist/server/wrangler.json` (entry point plus `dist/client` assets), and `wrangler deploy` uses it through `.wrangler/deploy/config.json`. Keep `wrangler.jsonc` minimal: no `main` and no `assets`. Its `name` must match the Worker name in the dashboard.
 - **Secrets** are read with `astro:env/server`, which works on every adapter. Do not use `Astro.locals.runtime`; it was removed in Astro 6+.
 - **Forms in `/admin`** are plain HTML forms posting to Astro Actions (`action={actions.admin.x}`). The page reads `Astro.getActionResult()` and redirects with `?ok=<key>`. The flash texts are in `src/layouts/Admin.astro`. Keep the forms working without JavaScript where possible.
 - **Tailwind v4.** Reusable classes (`btn-primary`, `card`, `input`, `label`, `section-title`, …) are defined with `@utility` in `src/styles/global.css`. Use the theme colors `brand`, `accent`, `ink`, `muted`, `line`, `bg`, `surface`; do not hard-code hex colors in components.

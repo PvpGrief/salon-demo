@@ -61,9 +61,10 @@ static sections.
 
 ## 6. Deploy (Cloudflare Workers)
 
-- [ ] `wrangler.jsonc` → `"name"`: a unique Worker name, e.g. `salons-aurora`
-- [ ] Cloudflare → Workers & Pages → Import repository. Build: `npm run build`. Deploy: `npx wrangler deploy`.
-- [ ] Worker → Settings → Variables and Secrets: `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY` (Secrets), optional `BREVO_API_KEY`. Then redeploy.
+- [ ] `wrangler.jsonc` → `"name"`: a unique Worker name, e.g. `salons-aurora`. Commit and push it to the branch you will deploy (usually `main`).
+- [ ] Cloudflare → Workers & Pages → Create → Import a repository, using the **same Worker name** as in `wrangler.jsonc`.
+- [ ] Build settings: production branch `main`, build command `npm run build`, deploy command `npx wrangler deploy`, root directory empty.
+- [ ] Worker → Settings → Variables and Secrets: `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY` (type Secret), optional `BREVO_API_KEY`. Then redeploy.
 - [ ] Settings → Domains & Routes → add the custom domain.
 - [ ] (Netlify instead: see README → "Deploy to Netlify".)
 

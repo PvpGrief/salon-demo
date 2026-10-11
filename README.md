@@ -178,14 +178,35 @@ script with another e-mail.
 
 ## Deploy to Cloudflare (default)
 
-The site runs as a Cloudflare **Worker** with static assets. The free plan
-includes 100,000 requests per day and allows commercial use.
+The site runs as a Cloudflare **Worker** with static assets (not a Pages
+project). The free plan includes 100,000 requests per day and allows
+commercial use.
 
-**Option A – connect the Git repository (recommended, auto-deploys on push)**
-1. Cloudflare dashboard → **Workers & Pages → Create → Import a repository**, and pick this repo.
-2. Build command: `npm run build`. Deploy command: `npx wrangler deploy`.
-3. After the first deploy, open the Worker → **Settings → Variables and Secrets** and add `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY` and optionally `BREVO_API_KEY`. Use type **Secret** for the keys. Then redeploy.
-4. **Settings → Domains & Routes → Add custom domain** (e.g. `www.salons.lv`).
+**How it works:**
+- `npm run build` creates `dist/client` (static files) and `dist/server` (the Worker). It also writes the real deploy config to `dist/server/wrangler.json`, plus a redirect in `.wrangler/deploy/config.json`.
+- `npx wrangler deploy` then follows that redirect automatically.
+- `wrangler.jsonc` only holds the Worker name and runtime flags. **Always build before deploying.**
+
+**Option A – Workers Builds (connect the Git repository, auto-deploys on push)**
+
+1. Make sure the branch you deploy contains the code. Workers Builds deploys **`main`** by default.
+2. Cloudflare dashboard → **Workers & Pages → Create → Import a repository**, and pick this repo. For an existing Worker: **Settings → Build → Connect**.
+3. Use exactly these build settings:
+
+   | Setting | Value |
+   |---|---|
+   | Production branch | `main` (or whichever branch holds the code) |
+   | Build command | `npm run build` |
+   | Deploy command | `npx wrangler deploy` |
+   | Non-production branch deploy command | `npx wrangler versions upload` (default) |
+   | Root directory / path | *(empty – repository root)* |
+   | Build variables | none needed; `.node-version` pins Node 22 |
+
+4. The Worker name in the dashboard **must equal `"name"` in `wrangler.jsonc`** (default `salon-booking`). Either name the Worker `salon-booking`, or change `"name"` in `wrangler.jsonc` to your Worker's name and push.
+5. **Settings → Variables and Secrets** (runtime, not "Build variables"): add `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY` and optionally `BREVO_API_KEY`, all with type **Secret**. Then **Deployments → Retry/redeploy** (or push a commit).
+   - The build itself needs no secrets; they are read at runtime.
+   - `keep_vars` in `wrangler.jsonc` stops deploys from removing variables you added in the dashboard.
+6. **Settings → Domains & Routes → Add → Custom domain** (e.g. `www.salons.lv`).
 
 **Option B – deploy from your computer**
 ```bash
@@ -194,11 +215,20 @@ npx wrangler secret put SUPABASE_URL
 npx wrangler secret put SUPABASE_ANON_KEY
 npx wrangler secret put SUPABASE_SERVICE_ROLE_KEY
 npx wrangler secret put BREVO_API_KEY      # optional
-npm run deploy
+npm run deploy                             # = astro build && wrangler deploy
 ```
 
 Per client, change `"name"` in `wrangler.jsonc` (the Worker name) and
 `siteUrl` in `src/config/business.ts`.
+
+**Common deploy errors**
+
+| Error in the build log | Cause and fix |
+|---|---|
+| `Could not detect a directory containing static files` | Wrangler found no `wrangler.jsonc`. The deployed branch has no code (e.g. `main` is still empty), or the root directory is wrong. Point the production branch at the branch with the code, or merge it into `main`. |
+| `Missing entry-point to Worker script or to assets directory` | The deploy ran without a build. Set the build command to `npm run build`. |
+| Name mismatch between Worker and config | Make the dashboard Worker name and `"name"` in `wrangler.jsonc` identical. |
+| Site loads but shows errors / no services | The runtime secrets are missing. Add them under **Variables and Secrets** and redeploy. |
 
 ---
 
