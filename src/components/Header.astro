@@ -1,0 +1,80 @@
+---
+import { business } from '../config/business';
+import { t } from '../config/texts';
+
+const links = [
+  { href: '/#pakalpojumi', label: t.nav.services },
+  { href: '/#meistari', label: t.nav.masters },
+  { href: '/#galerija', label: t.nav.gallery },
+  { href: '/pieejamiba', label: t.nav.availability },
+  { href: '/#kontakti', label: t.nav.contact },
+];
+---
+
+<header class="sticky top-0 z-40 border-b border-line bg-bg/90 backdrop-blur supports-[backdrop-filter]:bg-bg/75">
+  <div class="container-page flex h-16 items-center justify-between gap-4">
+    <a href="/" class="flex min-w-0 items-center gap-2.5" aria-label={`${business.name} – sākumlapa`}>
+      <img src={business.logo.src} alt="" width="36" height="36" class="size-9 shrink-0" />
+      {
+        business.logo.showName && (
+          <span class="truncate font-display text-lg font-semibold sm:text-xl">{business.shortName}</span>
+        )
+      }
+    </a>
+
+    <nav aria-label="Galvenā navigācija" class="hidden lg:block">
+      <ul class="flex items-center gap-1">
+        {
+          links.map((l) => (
+            <li>
+              <a href={l.href} class="rounded-full px-3 py-2 text-sm font-medium text-ink/80 hover:bg-brand-soft hover:text-brand">
+                {l.label}
+              </a>
+            </li>
+          ))
+        }
+      </ul>
+    </nav>
+
+    <div class="flex items-center gap-2">
+      <a href="/pieteikties" class="btn-primary !min-h-10 !px-5 !py-2 text-sm sm:text-base">{t.nav.book}</a>
+      <details class="group relative lg:hidden" data-menu>
+        <summary
+          class="flex size-10 cursor-pointer list-none items-center justify-center rounded-full hover:bg-brand-soft [&::-webkit-details-marker]:hidden"
+          aria-label={t.nav.menu}
+        >
+          <svg class="size-6 group-open:hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"
+            ><path d="M4 7h16M4 12h16M4 17h16"></path></svg
+          >
+          <svg class="hidden size-6 group-open:block" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"
+            ><path d="M6 6l12 12M18 6L6 18"></path></svg
+          >
+        </summary>
+        <nav aria-label="Mobilā navigācija" class="card absolute right-0 mt-2 w-56 p-2 shadow-lg">
+          <ul>
+            {
+              links.map((l) => (
+                <li>
+                  <a href={l.href} class="block rounded-xl px-4 py-3 font-medium hover:bg-brand-soft">
+                    {l.label}
+                  </a>
+                </li>
+              ))
+            }
+          </ul>
+        </nav>
+      </details>
+    </div>
+  </div>
+</header>
+
+<script>
+  // Close the mobile menu after choosing a link or tapping outside.
+  const menu = document.querySelector<HTMLDetailsElement>('[data-menu]');
+  menu?.addEventListener('click', (e) => {
+    if ((e.target as HTMLElement).closest('a')) menu.open = false;
+  });
+  document.addEventListener('click', (e) => {
+    if (menu?.open && !menu.contains(e.target as Node)) menu.open = false;
+  });
+</script>

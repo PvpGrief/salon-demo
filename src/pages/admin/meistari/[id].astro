@@ -1,0 +1,166 @@
+---
+/** Create (/admin/meistari/jauns) or edit a master: profile, photo, services, working hours. */
+import { actions, isInputError } from 'astro:actions';
+import Admin from '../../../layouts/Admin.astro';
+import TimeSelect from '../../../components/admin/TimeSelect.astro';
+import { WEEKDAY_NAMES, hoursToForm } from '../../../lib/admin';
+
+const id = Astro.params.id!;
+const isNew = id === 'jauns';
+const save = Astro.getActionResult(actions.admin.saveMaster);
+const del = Astro.getActionResult(actions.admin.deleteMaster);
+if (save && !save.error) return Astro.redirect(`/admin/meistari/${save.data.id}?ok=saglabats`);
+if (del && !del.error) return Astro.redirect('/admin/meistari?ok=dzests');
+
+const supabase = Astro.locals.supabase!;
+const [masterRes, services, ms, wh] = await Promise.all([
+  isNew ? Promise.resolve({ data: null }) : supabase.from('masters').select('*').eq('id', id).maybeSingle(),
+  supabase.from('services').select('id, name, active, category').order('sort_order').order('name'),
+  isNew ? Promise.resolve({ data: [] }) : supabase.from('master_services').select('service_id').eq('master_id', id),
+  isNew ? Promise.resolve({ data: [] }) : supabase.from('working_hours').select('weekday, start_time, end_time').eq('master_id', id),
+]);
+const m = masterRes.data as null | { id: string; name: string; title: string; bio: string; photo_url: string | null; active: boolean; sort_order: number };
+if (!isNew && !m) return new Response(null, { status: 404 });
+
+const selected = new Set((ms.data ?? []).map((x: { service_id: string }) => x.service_id));
+const hours = Array.from({ length: 7 }, (_, i) =>
+  isNew
+    ? { on: i < 5, start: '09:00', end: '18:00', bstart: '', bend: '' }
+    : hoursToForm((wh.data ?? []).filter((h: { weekday: number }) => h.weekday === i + 1)),
+);
+const err = save?.error ? (isInputError(save.error) ? 'Lūdzu, pārbaudiet laukus: ' + Object.keys(save.error.fields).join(', ') : save.error.message) : del?.error?.message;
+---
+
+<Admin title={isNew ? 'Jauns meistars' : m!.name}>
+  <a href="/admin/meistari" class="text-sm text-muted hover:underline">‹ Meistari</a>
+  <h1 class="mt-2 mb-4 text-2xl font-semibold">{isNew ? 'Jauns meistars' : m!.name}</h1>
+  {err && <p class="alert-error mb-4" role="alert">{err}</p>}
+
+  <form method="POST" action={actions.admin.saveMaster} enctype="multipart/form-data" class="space-y-6">
+    {!isNew && <input type="hidden" name="id" value={m!.id} />}
+
+    <section class="card space-y-4 p-4 sm:p-5">
+      <h2 class="text-lg font-semibold">Profils</h2>
+      <div class="grid gap-4 sm:grid-cols-2">
+        <div>
+          <label class="label" for="name">Vārds, uzvārds</label>
+          <input id="name" name="name" class="input" required maxlength="80" value={m?.name} />
+        </div>
+        <div>
+          <label class="label" for="title">Amats</label>
+          <input id="title" name="title" class="input" maxlength="80" value={m?.title} placeholder="Frizieris" />
+        </div>
+      </div>
+      <div>
+        <label class="label" for="bio">Apraksts (redzams vietnē)</label>
+        <textarea id="bio" name="bio" class="input min-h-24" maxlength="1000">{m?.bio}</textarea>
+      </div>
+      <div class="flex flex-wrap items-center gap-4">
+        <img
+          src={m?.photo_url || '/images/masters/placeholder.svg'}
+          alt=""
+          width="80"
+          height="100"
+          class="h-25 w-20 rounded-xl bg-brand-soft object-cover object-top"
+        />
+        <div class="min-w-0 flex-1">
+          <label class="label" for="photo">Foto (JPG, PNG vai WebP, līdz 5 MB, vertikāls 4:5)</label>
+          <input id="photo" name="photo" type="file" accept="image/jpeg,image/png,image/webp,image/avif" class="block w-full text-sm" />
+          {
+            m?.photo_url && (
+              <label class="mt-2 flex items-center gap-2 text-sm">
+                <input type="checkbox" name="removePhoto" class="size-4 accent-brand" /> Noņemt foto
+              </label>
+            )
+          }
+        </div>
+      </div>
+      <div class="grid grid-cols-2 gap-4">
+        <label class="flex items-center gap-3 self-end pb-2 text-sm font-medium">
+          <input type="checkbox" name="active" class="size-5 accent-brand" checked={isNew || m?.active} />
+          Aktīvs (redzams vietnē, var pierakstīties)
+        </label>
+        <div>
+          <label class="label" for="sortOrder">Secība sarakstā</label>
+          <input id="sortOrder" name="sortOrder" type="number" class="input" value={m?.sort_order ?? 0} />
+        </div>
+      </div>
+    </section>
+
+    <section class="card p-4 sm:p-5">
+      <h2 class="text-lg font-semibold">Pakalpojumi</h2>
+      <p class="hint">Atzīmējiet pakalpojumus, ko šis meistars sniedz.</p>
+      <div class="mt-3 grid gap-2 sm:grid-cols-2">
+        {
+          (services.data ?? []).map((s) => (
+            <label class="flex items-center gap-3 rounded-xl border border-line px-3 py-2.5 text-sm has-[:checked]:border-brand has-[:checked]:bg-brand-soft">
+              <input type="checkbox" name="serviceIds" value={s.id} class="size-5 accent-brand" checked={selected.has(s.id)} />
+              <span>
+                {s.name}
+                {!s.active && <span class="text-muted"> (neaktīvs)</span>}
+              </span>
+            </label>
+          ))
+        }
+      </div>
+    </section>
+
+    <section class="card p-4 sm:p-5">
+      <h2 class="text-lg font-semibold">Darba laiks</h2>
+      <p class="hint">Pārtraukums (piem., pusdienas) ir neobligāts. Vienreizējas izmaiņas (atvaļinājums) – sadaļā „Bloķēt”.</p>
+      <div class="mt-3 divide-y divide-line">
+        {
+          hours.map((h, i) => {
+            const d = i + 1;
+            return (
+              <fieldset class="flex flex-wrap items-center gap-x-4 gap-y-2 py-3">
+                <legend class="sr-only">{WEEKDAY_NAMES[i]}</legend>
+                <label class="flex w-32 items-center gap-2 text-sm font-medium">
+                  <input type="checkbox" name={`wh${d}_on`} class="size-5 accent-brand" checked={h.on} />
+                  {WEEKDAY_NAMES[i]}
+                </label>
+                <div class="flex items-center gap-1.5">
+                  <TimeSelect name={`wh${d}_start`} value={h.start} label={`${WEEKDAY_NAMES[i]} sākums`} />
+                  <span>–</span>
+                  <TimeSelect name={`wh${d}_end`} value={h.end} label={`${WEEKDAY_NAMES[i]} beigas`} />
+                </div>
+                <div class="flex items-center gap-1.5">
+                  <span class="text-xs text-muted">Pārtraukums</span>
+                  <TimeSelect name={`wh${d}_bstart`} value={h.bstart} empty="—" label={`${WEEKDAY_NAMES[i]} pārtraukuma sākums`} />
+                  <span>–</span>
+                  <TimeSelect name={`wh${d}_bend`} value={h.bend} empty="—" label={`${WEEKDAY_NAMES[i]} pārtraukuma beigas`} />
+                </div>
+              </fieldset>
+            );
+          })
+        }
+      </div>
+    </section>
+
+    <div class="flex flex-col gap-3 sm:flex-row">
+      <button class="btn-primary">{isNew ? 'Izveidot meistaru' : 'Saglabāt'}</button>
+      <a href="/admin/meistari" class="btn-outline">Atpakaļ</a>
+    </div>
+  </form>
+
+  {
+    !isNew && (
+      <details class="mt-8 text-sm">
+        <summary class="cursor-pointer text-muted">Dzēst meistaru</summary>
+        <p class="mt-2 text-muted">Meistaru ar pierakstiem nevar dzēst – noņemiet atzīmi „Aktīvs”, lai paslēptu.</p>
+        <form method="POST" action={actions.admin.deleteMaster} class="mt-3" data-confirm="Dzēst meistaru?">
+          <input type="hidden" name="id" value={m!.id} />
+          <button class="btn-outline !min-h-9 border-red-300 !px-4 text-sm text-red-700">Dzēst</button>
+        </form>
+      </details>
+    )
+  }
+</Admin>
+
+<script>
+  document.querySelectorAll<HTMLFormElement>('form[data-confirm]').forEach((f) =>
+    f.addEventListener('submit', (e) => {
+      if (!confirm(f.dataset.confirm!)) e.preventDefault();
+    }),
+  );
+</script>

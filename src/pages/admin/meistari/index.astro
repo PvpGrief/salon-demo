@@ -1,0 +1,45 @@
+---
+import Admin from '../../../layouts/Admin.astro';
+import { masterColor } from '../../../lib/admin';
+
+const supabase = Astro.locals.supabase!;
+const [masters, ms, services] = await Promise.all([
+  supabase.from('masters').select('id, name, title, photo_url, active').order('sort_order').order('name'),
+  supabase.from('master_services').select('master_id, service_id'),
+  supabase.from('services').select('id, name'),
+]);
+const serviceName = new Map((services.data ?? []).map((s) => [s.id, s.name]));
+const offered = (id: string) => (ms.data ?? []).filter((x) => x.master_id === id).map((x) => serviceName.get(x.service_id)).filter(Boolean);
+---
+
+<Admin title="Meistari">
+  <div class="flex flex-wrap items-center justify-between gap-3">
+    <h1 class="text-2xl font-semibold">Meistari</h1>
+    <a href="/admin/meistari/jauns" class="btn-primary !min-h-10 !px-4 text-sm">+ Pievienot meistaru</a>
+  </div>
+  <ul class="card mt-4 divide-y divide-line">
+    {
+      (masters.data ?? []).map((m, i) => (
+        <li class="relative flex items-center gap-3 p-3 sm:p-4">
+          <img
+            src={m.photo_url || '/images/masters/placeholder.svg'}
+            alt=""
+            width="48"
+            height="48"
+            class="size-12 shrink-0 rounded-full bg-brand-soft object-cover object-top"
+            style={`box-shadow: 0 0 0 3px ${masterColor(i)}`}
+          />
+          <div class="min-w-0 flex-1">
+            <a href={`/admin/meistari/${m.id}`} class="font-semibold after:absolute after:inset-0 hover:underline">
+              {m.name}
+            </a>
+            {!m.active && <span class="ml-2 rounded-full bg-bg px-2 py-0.5 text-xs text-muted">Neaktīvs</span>}
+            <p class="truncate text-sm text-muted">{[m.title, offered(m.id).join(', ')].filter(Boolean).join(' · ')}</p>
+          </div>
+          <span class="text-muted">›</span>
+        </li>
+      ))
+    }
+  </ul>
+  {(masters.data ?? []).length === 0 && <p class="mt-4 text-muted">Vēl nav neviena meistara.</p>}
+</Admin>

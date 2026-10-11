@@ -1,0 +1,36 @@
+---
+import Admin from '../../../layouts/Admin.astro';
+import { formatPrice } from '../../../lib/format';
+import { formatDuration } from '../../../lib/time';
+
+const supabase = Astro.locals.supabase!;
+const { data: services } = await supabase.from('services').select('*').order('sort_order').order('name');
+---
+
+<Admin title="Pakalpojumi">
+  <div class="flex flex-wrap items-center justify-between gap-3">
+    <h1 class="text-2xl font-semibold">Pakalpojumi</h1>
+    <a href="/admin/pakalpojumi/jauns" class="btn-primary !min-h-10 !px-4 text-sm">+ Pievienot pakalpojumu</a>
+  </div>
+  <p class="mt-1 text-sm text-muted">Kuri meistari sniedz pakalpojumu – norāda meistara kartītē.</p>
+  <ul class="card mt-4 divide-y divide-line">
+    {
+      (services ?? []).map((s) => (
+        <li class="relative flex items-center gap-3 p-3 sm:p-4">
+          <div class="min-w-0 flex-1">
+            <a href={`/admin/pakalpojumi/${s.id}`} class="font-semibold after:absolute after:inset-0 hover:underline">
+              {s.name}
+            </a>
+            {!s.active && <span class="ml-2 rounded-full bg-bg px-2 py-0.5 text-xs text-muted">Neaktīvs</span>}
+            <p class="text-sm text-muted">
+              {[s.category, formatDuration(s.duration_min)].filter(Boolean).join(' · ')}
+            </p>
+          </div>
+          <span class="font-semibold whitespace-nowrap text-brand">{formatPrice(s.price_eur, s.price_from)}</span>
+          <span class="text-muted">›</span>
+        </li>
+      ))
+    }
+  </ul>
+  {(services ?? []).length === 0 && <p class="mt-4 text-muted">Vēl nav neviena pakalpojuma.</p>}
+</Admin>

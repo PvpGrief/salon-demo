@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 600" role="img" aria-label="Galerijas attēla vieta">
+<defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f3e7e9"/><stop offset="1" stop-color="#e7cfd4"/></linearGradient></defs>
+<rect width="600" height="600" fill="url(#g)"/>
+<circle cx="480" cy="120" r="60" fill="#fff" opacity=".35"/>
+<path d="M180 300c40-40 90-40 120-20M300 280c30-20 80-20 120 20" fill="none" stroke="#8a4b5c" stroke-width="18" stroke-linecap="round" opacity=".6"/><circle cx="240" cy="340" r="20" fill="#8a4b5c" opacity=".4"/><circle cx="360" cy="340" r="20" fill="#8a4b5c" opacity=".4"/>
+</svg>

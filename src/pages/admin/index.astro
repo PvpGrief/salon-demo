@@ -1,0 +1,228 @@
+---
+/**
+ * Bookings overview: day or week agenda, filter by master.
+ * ?skats=diena|nedela &datums=YYYY-MM-DD &meistars=<id> &atcelti=1
+ */
+import Admin from '../../layouts/Admin.astro';
+import { formatPhone, telHref } from '../../lib/format';
+import { masterColor } from '../../lib/admin';
+import {
+  addDays,
+  formatDate,
+  formatDateWithWeekday,
+  isDateString,
+  rigaToUtc,
+  startOfWeek,
+  toRigaDate,
+  toRigaTime,
+  todayRiga,
+} from '../../lib/time';
+
+const supabase = Astro.locals.supabase!;
+const q = Astro.url.searchParams;
+const view = q.get('skats') === 'nedela' ? 'nedela' : 'diena';
+const date = isDateString(q.get('datums')) ? q.get('datums')! : todayRiga();
+const masterFilter = q.get('meistars') ?? '';
+const showCancelled = q.get('atcelti') === '1';
+
+const from = view === 'nedela' ? startOfWeek(date) : date;
+const days = view === 'nedela' ? 7 : 1;
+const dates = Array.from({ length: days }, (_, i) => addDays(from, i));
+const fromTs = rigaToUtc(from, '00:00').toISOString();
+const toTs = rigaToUtc(addDays(from, days), '00:00').toISOString();
+
+const [mastersRes, servicesRes, closedRes] = await Promise.all([
+  supabase.from('masters').select('id, name, active').order('sort_order').order('name'),
+  supabase.from('services').select('id, name'),
+  supabase.from('closed_days').select('day, reason').gte('day', from).lt('day', addDays(from, days)),
+]);
+
+let bq = supabase
+  .from('bookings')
+  .select('id, starts_at, ends_at, status, customer_name, customer_phone, comment, source, service_id, master_id')
+  .gte('starts_at', fromTs)
+  .lt('starts_at', toTs)
+  .order('starts_at');
+if (masterFilter) bq = bq.eq('master_id', masterFilter);
+if (!showCancelled) bq = bq.eq('status', 'confirmed');
+
+let kq = supabase.from('master_blocks').select('id, master_id, starts_at, ends_at, reason').lt('starts_at', toTs).gt('ends_at', fromTs).order('starts_at');
+if (masterFilter) kq = kq.eq('master_id', masterFilter);
+
+const [bookingsRes, blocksRes] = await Promise.all([bq, kq]);
+const loadError = [mastersRes, servicesRes, closedRes, bookingsRes, blocksRes].find((r) => r.error)?.error;
+
+const masters = mastersRes.data ?? [];
+const masterById = new Map(masters.map((m, i) => [m.id, { ...m, color: masterColor(i) }]));
+const serviceName = new Map((servicesRes.data ?? []).map((s) => [s.id, s.name]));
+const closed = new Map((closedRes.data ?? []).map((c) => [c.day, c.reason]));
+const bookings = bookingsRes.data ?? [];
+const blocks = blocksRes.data ?? [];
+
+const byDay = new Map(dates.map((d) => [d, [] as typeof bookings]));
+for (const b of bookings) byDay.get(toRigaDate(new Date(b.starts_at)))?.push(b);
+
+function blocksOn(d: string) {
+  const s = rigaToUtc(d, '00:00').getTime();
+  const e = rigaToUtc(addDays(d, 1), '00:00').getTime();
+  return blocks.filter((k) => new Date(k.starts_at).getTime() < e && new Date(k.ends_at).getTime() > s);
+}
+function blockLabel(k: { starts_at: string; ends_at: string }, d: string) {
+  const s = new Date(k.starts_at);
+  const e = new Date(k.ends_at);
+  const startsBefore = toRigaDate(s) < d;
+  const endsAfter = toRigaDate(e) > d || (toRigaDate(e) === addDays(d, 1) && toRigaTime(e) === '00:00');
+  if (startsBefore && endsAfter) return 'Visa diena';
+  if (toRigaTime(s) === '00:00' && endsAfter) return 'Visa diena';
+  return `${startsBefore ? '00:00' : toRigaTime(s)}–${endsAfter ? '24:00' : toRigaTime(e)}`;
+}
+
+function link(params: Record<string, string | null>) {
+  const p = new URLSearchParams(q);
+  for (const [k, v] of Object.entries(params)) {
+    if (v === null || v === '') p.delete(k);
+    else p.set(k, v);
+  }
+  p.delete('ok');
+  const s = p.toString();
+  return s ? `/admin?${s}` : '/admin';
+}
+
+const step = view === 'nedela' ? 7 : 1;
+const title = view === 'nedela' ? `${formatDate(dates[0])} – ${formatDate(dates[6])}` : formatDateWithWeekday(date);
+const today = todayRiga();
+const total = bookings.filter((b) => b.status === 'confirmed').length;
+---
+
+<Admin title="Pieraksti">
+  <div class="flex flex-wrap items-center justify-between gap-3">
+    <h1 class="text-2xl font-semibold">Pieraksti</h1>
+    <a href={`/admin/pieraksti/jauns?datums=${date}${masterFilter ? `&meistars=${masterFilter}` : ''}`} class="btn-primary !min-h-10 !px-4 text-sm">
+      + Jauns pieraksts
+    </a>
+  </div>
+
+  <div class="mt-4 flex flex-wrap items-center gap-2">
+    <div class="inline-flex rounded-xl border border-line bg-surface p-1 text-sm font-medium">
+      <a href={link({ skats: null })} class:list={['rounded-lg px-3 py-1.5', view === 'diena' ? 'bg-brand text-white' : 'text-muted']}>Diena</a>
+      <a href={link({ skats: 'nedela' })} class:list={['rounded-lg px-3 py-1.5', view === 'nedela' ? 'bg-brand text-white' : 'text-muted']}>Nedēļa</a>
+    </div>
+    <div class="inline-flex items-center rounded-xl border border-line bg-surface p-1">
+      <a href={link({ datums: addDays(date, -step) })} class="rounded-lg px-3 py-1.5 hover:bg-bg" aria-label="Iepriekšējā">‹</a>
+      <a href={link({ datums: null })} class:list={['rounded-lg px-3 py-1.5 text-sm font-medium hover:bg-bg', date === today && 'text-brand']}>Šodien</a>
+      <a href={link({ datums: addDays(date, step) })} class="rounded-lg px-3 py-1.5 hover:bg-bg" aria-label="Nākamā">›</a>
+    </div>
+    <form method="GET" action="/admin" class="flex flex-wrap items-center gap-2" data-autosubmit>
+      {view === 'nedela' && <input type="hidden" name="skats" value="nedela" />}
+      {showCancelled && <input type="hidden" name="atcelti" value="1" />}
+      <label class="sr-only" for="f-date">Datums</label>
+      <input id="f-date" type="date" name="datums" value={date} class="input !min-h-10 !w-auto !py-1.5" />
+      <label class="sr-only" for="f-master">Meistars</label>
+      <select id="f-master" name="meistars" class="input !min-h-10 !w-auto !py-1.5">
+        <option value="">Visi meistari</option>
+        {masters.map((m) => <option value={m.id} selected={m.id === masterFilter}>{m.name}{m.active ? '' : ' (neaktīvs)'}</option>)}
+      </select>
+      <noscript><button class="btn-outline !min-h-10 !px-3 text-sm">Rādīt</button></noscript>
+    </form>
+  </div>
+
+  <div class="mt-3 flex flex-wrap items-center justify-between gap-2 text-sm">
+    <p class="font-semibold">{title}</p>
+    <p class="text-muted">
+      {total} {total === 1 ? 'pieraksts' : 'pieraksti'} ·
+      <a class="underline" href={link({ atcelti: showCancelled ? null : '1' })}>{showCancelled ? 'Slēpt atceltos' : 'Rādīt atceltos'}</a>
+    </p>
+  </div>
+
+  {loadError && <p class="alert-error mt-4">Neizdevās ielādēt datus: {loadError.message}</p>}
+
+  <div class="mt-4 space-y-6">
+    {
+      dates.map((d) => {
+        const list = byDay.get(d) ?? [];
+        const dayBlocks = blocksOn(d);
+        return (
+          <section aria-label={formatDateWithWeekday(d)}>
+            {view === 'nedela' && (
+              <h2 class:list={['mb-2 flex items-baseline justify-between text-base font-semibold', d === today && 'text-brand']}>
+                <a href={link({ skats: null, datums: d })} class="hover:underline">
+                  {formatDateWithWeekday(d)}
+                </a>
+                <span class="text-sm font-normal text-muted">{list.filter((b) => b.status === 'confirmed').length}</span>
+              </h2>
+            )}
+            {closed.has(d) && (
+              <p class="mb-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-2.5 text-sm text-amber-900">
+                Salons slēgts{closed.get(d) ? ` – ${closed.get(d)}` : ''}
+              </p>
+            )}
+            {dayBlocks.length > 0 && (
+              <ul class="mb-2 space-y-1.5">
+                {dayBlocks.map((k) => (
+                  <li class="flex items-center gap-3 rounded-xl border border-dashed border-line bg-surface/60 px-4 py-2 text-sm text-muted">
+                    <span class="size-2.5 shrink-0 rounded-full" style={`background:${masterById.get(k.master_id)?.color}`} />
+                    <span class="tabular-nums">{blockLabel(k, d)}</span>
+                    <span class="min-w-0 flex-1 truncate">
+                      {masterById.get(k.master_id)?.name} – bloķēts{k.reason ? `: ${k.reason}` : ''}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+            {list.length === 0 ? (
+              view === 'diena' && (
+                <div class="card p-6 text-center text-muted">
+                  Šajā dienā pierakstu nav.
+                  <a class="mt-2 block font-medium text-brand underline" href={`/admin/pieraksti/jauns?datums=${d}`}>
+                    Izveidot pierakstu
+                  </a>
+                </div>
+              )
+            ) : (
+              <ul class="card divide-y divide-line">
+                {list.map((b) => {
+                  const m = masterById.get(b.master_id);
+                  const cancelled = b.status === 'cancelled';
+                  return (
+                    <li class:list={['relative flex gap-3 p-3 sm:gap-4 sm:p-4', cancelled && 'opacity-60']}>
+                      <div class="w-14 shrink-0 text-sm tabular-nums sm:w-16">
+                        <p class="font-semibold">{toRigaTime(new Date(b.starts_at))}</p>
+                        <p class="text-muted">{toRigaTime(new Date(b.ends_at))}</p>
+                      </div>
+                      <span class="w-1 shrink-0 rounded-full" style={`background:${m?.color ?? '#999'}`} aria-hidden="true" />
+                      <div class="min-w-0 flex-1">
+                        <a href={`/admin/pieraksti/${b.id}`} class="font-semibold after:absolute after:inset-0 hover:underline">
+                          <span class:list={[cancelled && 'line-through']}>{b.customer_name}</span>
+                        </a>
+                        <p class="truncate text-sm text-muted">
+                          {serviceName.get(b.service_id)} · {m?.name}
+                        </p>
+                        {b.comment && <p class="mt-0.5 truncate text-sm text-ink/70">„{b.comment}”</p>}
+                      </div>
+                      <div class="flex shrink-0 flex-col items-end gap-1">
+                        <a href={telHref(b.customer_phone)} class="relative z-10 rounded-lg px-2 py-1 text-sm font-medium text-brand hover:bg-brand-soft">
+                          {formatPhone(b.customer_phone)}
+                        </a>
+                        {cancelled ? (
+                          <span class="rounded-full bg-red-50 px-2 py-0.5 text-xs font-medium text-red-700">Atcelts</span>
+                        ) : (
+                          b.source === 'admin' && <span class="rounded-full bg-bg px-2 py-0.5 text-xs text-muted">Pa tālruni</span>
+                        )}
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </section>
+        );
+      })
+    }
+  </div>
+</Admin>
+
+<script>
+  document.querySelectorAll<HTMLFormElement>('form[data-autosubmit]').forEach((form) => {
+    form.addEventListener('change', () => form.requestSubmit());
+  });
+</script>

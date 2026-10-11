@@ -1,0 +1,95 @@
+---
+/** Create (/admin/pakalpojumi/jauns) or edit a service. */
+import { actions, isInputError } from 'astro:actions';
+import Admin from '../../../layouts/Admin.astro';
+
+const id = Astro.params.id!;
+const isNew = id === 'jauns';
+const save = Astro.getActionResult(actions.admin.saveService);
+const del = Astro.getActionResult(actions.admin.deleteService);
+if (save && !save.error) return Astro.redirect('/admin/pakalpojumi?ok=saglabats');
+if (del && !del.error) return Astro.redirect('/admin/pakalpojumi?ok=dzests');
+
+const supabase = Astro.locals.supabase!;
+const s = isNew ? null : (await supabase.from('services').select('*').eq('id', id).maybeSingle()).data;
+if (!isNew && !s) return new Response(null, { status: 404 });
+const categories = [...new Set(((await supabase.from('services').select('category')).data ?? []).map((x) => x.category).filter(Boolean))];
+const fieldErr = save?.error && isInputError(save.error) ? save.error.fields : {};
+const err = save?.error && !isInputError(save.error) ? save.error.message : del?.error?.message;
+const price = s?.price_eur === null || s?.price_eur === undefined ? '' : String(s.price_eur).replace('.', ',');
+---
+
+<Admin title={isNew ? 'Jauns pakalpojums' : s!.name}>
+  <a href="/admin/pakalpojumi" class="text-sm text-muted hover:underline">‹ Pakalpojumi</a>
+  <h1 class="mt-2 mb-4 text-2xl font-semibold">{isNew ? 'Jauns pakalpojums' : s!.name}</h1>
+  {err && <p class="alert-error mb-4" role="alert">{err}</p>}
+
+  <form method="POST" action={actions.admin.saveService} class="card max-w-2xl space-y-4 p-4 sm:p-5">
+    {!isNew && <input type="hidden" name="id" value={s!.id} />}
+    <div>
+      <label class="label" for="name">Nosaukums</label>
+      <input id="name" name="name" class="input" required maxlength="120" value={s?.name} />
+      {fieldErr.name && <p class="error-text">{fieldErr.name[0]}</p>}
+    </div>
+    <div>
+      <label class="label" for="category">Kategorija (grupē sarakstā)</label>
+      <input id="category" name="category" class="input" maxlength="60" list="cats" value={s?.category} placeholder="Mati" />
+      <datalist id="cats">{categories.map((c) => <option value={c} />)}</datalist>
+    </div>
+    <div>
+      <label class="label" for="description">Apraksts</label>
+      <textarea id="description" name="description" class="input min-h-20" maxlength="1000">{s?.description}</textarea>
+    </div>
+    <div class="grid grid-cols-2 gap-4">
+      <div>
+        <label class="label" for="durationMin">Ilgums (min)</label>
+        <input id="durationMin" name="durationMin" type="number" min="5" max="600" step="5" class="input" required value={s?.duration_min ?? 60} />
+        {fieldErr.durationMin && <p class="error-text">Ilgums 5–600 min</p>}
+      </div>
+      <div>
+        <label class="label" for="price">Cena (€)</label>
+        <input id="price" name="price" inputmode="decimal" class="input" maxlength="12" value={price} placeholder="35" />
+        <p class="hint">Tukšs = „pēc vienošanās”</p>
+      </div>
+    </div>
+    <label class="flex items-center gap-3 text-sm">
+      <input type="checkbox" name="priceFrom" class="size-5 accent-brand" checked={s?.price_from} />
+      Rādīt kā „no … €” (cena atkarīga no apjoma)
+    </label>
+    <div class="grid grid-cols-2 gap-4">
+      <label class="flex items-center gap-3 self-end pb-2 text-sm font-medium">
+        <input type="checkbox" name="active" class="size-5 accent-brand" checked={isNew || s?.active} />
+        Aktīvs
+      </label>
+      <div>
+        <label class="label" for="sortOrder">Secība</label>
+        <input id="sortOrder" name="sortOrder" type="number" class="input" value={s?.sort_order ?? 0} />
+      </div>
+    </div>
+    <div class="flex flex-col gap-3 pt-2 sm:flex-row">
+      <button class="btn-primary">{isNew ? 'Izveidot' : 'Saglabāt'}</button>
+      <a href="/admin/pakalpojumi" class="btn-outline">Atpakaļ</a>
+    </div>
+  </form>
+
+  {
+    !isNew && (
+      <details class="mt-8 text-sm">
+        <summary class="cursor-pointer text-muted">Dzēst pakalpojumu</summary>
+        <p class="mt-2 text-muted">Pakalpojumu ar pierakstiem nevar dzēst – noņemiet atzīmi „Aktīvs”.</p>
+        <form method="POST" action={actions.admin.deleteService} class="mt-3" data-confirm="Dzēst pakalpojumu?">
+          <input type="hidden" name="id" value={s!.id} />
+          <button class="btn-outline !min-h-9 border-red-300 !px-4 text-sm text-red-700">Dzēst</button>
+        </form>
+      </details>
+    )
+  }
+</Admin>
+
+<script>
+  document.querySelectorAll<HTMLFormElement>('form[data-confirm]').forEach((f) =>
+    f.addEventListener('submit', (e) => {
+      if (!confirm(f.dataset.confirm!)) e.preventDefault();
+    }),
+  );
+</script>

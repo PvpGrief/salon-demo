@@ -1,0 +1,30 @@
+---
+import { business } from '../../config/business';
+const s = business.sections.gallery;
+---
+
+{
+  business.gallery.length > 0 && (
+    <section id="galerija" class="section bg-surface">
+      <div class="container-page">
+        <h2 class="section-title">{s.title}</h2>
+        <p class="section-intro">{s.intro}</p>
+        <ul class="mt-10 grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3">
+          {business.gallery.map((img) => (
+            <li>
+              <img
+                src={img.src}
+                alt={img.alt}
+                width="600"
+                height="600"
+                loading="lazy"
+                decoding="async"
+                class="aspect-square w-full rounded-2xl bg-brand-soft object-cover"
+              />
+            </li>
+          ))}
+        </ul>
+      </div>
+    </section>
+  )
+}

@@ -1,0 +1,136 @@
+---
+/**
+ * PRIVACY POLICY TEMPLATE (Latvian, GDPR / VDAR).
+ * Company details come from business.legal in src/config/business.ts and the
+ * retention period from the database settings. This is a template, not legal
+ * advice – have the final text reviewed for each client.
+ * The list of processors (hosting, e-mail, …) is business.legal.processors.
+ */
+import Base from '../layouts/Base.astro';
+import { business } from '../config/business';
+import { publicClient } from '../lib/supabase';
+import { formatDate } from '../lib/time';
+
+const L = business.legal;
+let retentionMonths = 24;
+try {
+  const { data } = await publicClient().from('settings').select('retention_months').eq('id', 1).single();
+  if (data?.retention_months) retentionMonths = data.retention_months;
+} catch {
+  /* default */
+}
+---
+
+<Base title="Privātuma politika" description={`${business.name} privātuma politika: kā mēs apstrādājam jūsu personas datus.`}>
+  <article class="container-page max-w-3xl py-10 sm:py-14">
+    <h1 class="text-3xl font-semibold sm:text-4xl">Privātuma politika</h1>
+    <p class="mt-2 text-sm text-muted">Spēkā no {formatDate(L.privacyUpdated)}</p>
+
+    <div class="mt-8 space-y-8 leading-relaxed [&_h2]:text-xl [&_h2]:font-semibold [&_li]:mt-1 [&_ul]:mt-3 [&_ul]:list-disc [&_ul]:pl-5">
+      <section>
+        <h2>1. Pārzinis</h2>
+        <p class="mt-3">
+          Personas datu apstrādes pārzinis ir <strong>{L.companyName}</strong>, reģistrācijas Nr. {L.registrationNumber}, juridiskā adrese:
+          {L.legalAddress} (turpmāk – „mēs”). Saziņai par datu aizsardzības jautājumiem: <a class="text-brand underline" href={`mailto:${L.privacyEmail}`}
+            >{L.privacyEmail}</a
+          >, tālr. {business.contact.phone}.
+        </p>
+      </section>
+
+      <section>
+        <h2>2. Kādus datus mēs apstrādājam</h2>
+        <ul>
+          <li>Pierakstoties: vārds, uzvārds, tālruņa numurs, e-pasta adrese (ja norādāt), komentārs (ja norādāt).</li>
+          <li>Pieraksta informācija: izvēlētais pakalpojums, meistars, datums un laiks, pieraksta statuss.</li>
+          <li>Tehniskie dati: IP adrese un pārlūka informācija, ko īslaicīgi apstrādā mūsu mitināšanas pakalpojuma sniedzējs drošības nolūkos.</li>
+        </ul>
+        <p class="mt-3">
+          Lūdzu, nenorādiet komentārā sensitīvus datus (piemēram, veselības informāciju), ja vien tas nav nepieciešams procedūras drošai veikšanai
+          (piemēram, alerģija pret konkrētu vielu).
+        </p>
+      </section>
+
+      <section>
+        <h2>3. Nolūki un tiesiskais pamats</h2>
+        <ul>
+          <li>
+            <strong>Pieraksta nodrošināšana un pakalpojuma sniegšana</strong> – līguma noslēgšana un izpilde (VDAR 6. panta 1. punkta b) apakšpunkts).
+          </li>
+          <li>
+            <strong>Saziņa par pierakstu</strong> (apstiprinājums, izmaiņas, atcelšana) – līguma izpilde un mūsu leģitīmās intereses (VDAR 6. panta 1. punkta
+            b) un f) apakšpunkts).
+          </li>
+          <li>
+            <strong>Vietnes drošība un ļaunprātīgas izmantošanas novēršana</strong> – mūsu leģitīmās intereses (VDAR 6. panta 1. punkta f) apakšpunkts).
+          </li>
+          <li><strong>Grāmatvedības un nodokļu prasību izpilde</strong> – juridisks pienākums (VDAR 6. panta 1. punkta c) apakšpunkts).</li>
+        </ul>
+        <p class="mt-3">Mēs neizmantojam jūsu datus tiešajam mārketingam un neveicam profilēšanu.</p>
+      </section>
+
+      <section>
+        <h2>4. Glabāšanas termiņš</h2>
+        <p class="mt-3">
+          Pieraksta datus glabājam {retentionMonths} mēnešus pēc vizītes datuma, lai varētu atbildēt uz jautājumiem par sniegto pakalpojumu.
+          Pēc šī termiņa jūsu vārds, tālrunis, e-pasts un komentārs tiek dzēsti (anonimizēti). Grāmatvedības dokumentus glabājam normatīvajos aktos
+          noteikto laiku.
+        </p>
+      </section>
+
+      <section>
+        <h2>5. Datu saņēmēji (apstrādātāji)</h2>
+        <p class="mt-3">Jūsu datus nepārdodam un nenododam trešajām personām. Mēs izmantojam šādus pakalpojumu sniedzējus, kas datus apstrādā mūsu uzdevumā:</p>
+        <ul>
+          {
+            L.processors.map((p) => (
+              <li>
+                <strong>{p.name}</strong> – {p.purpose}.
+              </li>
+            ))
+          }
+        </ul>
+        <p class="mt-3">
+          Ja kāds no apstrādātājiem datus apstrādā ārpus Eiropas Ekonomikas zonas, tas notiek, pamatojoties uz Eiropas Komisijas lēmumu par
+          aizsardzības līmeņa pietiekamību (piemēram, ES–ASV Datu privātuma regulējums) vai standarta līguma klauzulām.
+        </p>
+      </section>
+
+      <section>
+        <h2>6. Jūsu tiesības</h2>
+        <p class="mt-3">Jums ir tiesības:</p>
+        <ul>
+          <li>piekļūt saviem datiem un saņemt to kopiju;</li>
+          <li>labot neprecīzus datus;</li>
+          <li>pieprasīt datu dzēšanu („tiesības tikt aizmirstam”);</li>
+          <li>ierobežot apstrādi vai iebilst pret apstrādi, kas balstīta uz leģitīmajām interesēm;</li>
+          <li>saņemt savus datus pārnesamā formātā.</li>
+        </ul>
+        <p class="mt-3">
+          Lai izmantotu savas tiesības, rakstiet uz <a class="text-brand underline" href={`mailto:${L.privacyEmail}`}>{L.privacyEmail}</a>. Atbildēsim
+          viena mēneša laikā. Ja uzskatāt, ka jūsu dati tiek apstrādāti nelikumīgi, varat iesniegt sūdzību Datu valsts inspekcijā (<a
+            class="text-brand underline"
+            href="https://www.dvi.gov.lv"
+            rel="noopener"
+            target="_blank">www.dvi.gov.lv</a
+          >).
+        </p>
+      </section>
+
+      <section>
+        <h2>7. Sīkdatnes</h2>
+        <p class="mt-3">
+          Vietne izmanto tikai tehniski nepieciešamās sīkdatnes: sesijas sīkdatnes administratora pieteikšanās nodrošināšanai. Jūsu pārlūkā tiek
+          saglabāta arī atzīme, ka esat iepazinies ar datu paziņojumu. Mēs neizmantojam analītikas, reklāmas vai sociālo tīklu izsekošanas sīkdatnes,
+          tāpēc piekrišana sīkdatnēm nav nepieciešama.
+        </p>
+      </section>
+
+      <section>
+        <h2>8. Izmaiņas</h2>
+        <p class="mt-3">
+          Mēs varam atjaunināt šo privātuma politiku. Aktuālā versija vienmēr ir pieejama šajā lapā, un tās spēkā stāšanās datums norādīts augšpusē.
+        </p>
+      </section>
+    </div>
+  </article>
+</Base>

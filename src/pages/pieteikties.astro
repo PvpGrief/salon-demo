@@ -1,0 +1,80 @@
+---
+import Base from '../layouts/Base.astro';
+import BookingWizard from '../components/booking/BookingWizard';
+import { business } from '../config/business';
+import { t } from '../config/texts';
+import { loadCatalogue, mastersForService, type Catalogue } from '../lib/booking/availability';
+import { formatPrice, telHref } from '../lib/format';
+import { publicClient } from '../lib/supabase';
+import { todayRiga } from '../lib/time';
+
+let cat: Catalogue | null = null;
+try {
+  cat = await loadCatalogue(publicClient());
+} catch (e) {
+  console.error('[pieteikties]', e);
+}
+
+// Only services that at least one active master offers can be booked online.
+const services = (cat?.services ?? [])
+  .filter((s) => mastersForService(cat!, s.id).length > 0)
+  .map((s) => ({
+    id: s.id,
+    name: s.name,
+    description: s.description,
+    category: s.category,
+    durationMin: s.duration_min,
+    priceLabel: formatPrice(s.price_eur, s.price_from),
+  }));
+const masters = (cat?.masters ?? []).map((m) => ({
+  id: m.id,
+  name: m.name,
+  title: m.title,
+  photoUrl: m.photo_url,
+  serviceIds: [...(cat!.masterServices.get(m.id) ?? [])],
+}));
+
+const params = Astro.url.searchParams;
+---
+
+<Base title={t.booking.title} description={`Pierakstieties tiešsaistē: ${business.name}. Izvēlieties pakalpojumu, meistaru un brīvu laiku.`}>
+  <section class="container-page py-8 sm:py-12">
+    <div class="mx-auto max-w-3xl">
+      <h1 class="text-3xl font-semibold sm:text-4xl">{t.booking.title}</h1>
+      <p class="mt-2 text-muted">{t.booking.intro}</p>
+    </div>
+    <div class="mt-6">
+      {
+        services.length === 0 ? (
+          <div class="alert-info mx-auto max-w-3xl">
+            Tiešsaistes pieraksts šobrīd nav pieejams. Lūdzu, zvaniet:{' '}
+            <a class="font-semibold text-brand" href={telHref(business.contact.phone)}>
+              {business.contact.phone}
+            </a>
+          </div>
+        ) : (
+          <BookingWizard
+            client:load
+            services={services}
+            masters={masters}
+            initialServiceId={params.get('pakalpojums')}
+            initialMasterId={params.get('meistars')}
+            today={todayRiga()}
+            daysInPicker={business.booking.daysInPicker}
+            maxDaysAhead={cat!.settings.max_days_ahead}
+            phone={business.contact.phone}
+            arrivalNote={business.booking.arrivalNote}
+            cancellationPolicy={business.booking.cancellationPolicy}
+            businessName={business.name}
+            location={`${business.contact.address.street}, ${business.contact.address.city}`}
+          />
+        )
+      }
+    </div>
+    <noscript>
+      <p class="alert-info mx-auto mt-6 max-w-3xl">
+        Lai pierakstītos tiešsaistē, ieslēdziet JavaScript vai zvaniet: {business.contact.phone}
+      </p>
+    </noscript>
+  </section>
+</Base>

@@ -1,0 +1,55 @@
+{
+  "name": "salon-booking-template",
+  "version": "1.0.0",
+  "description": "Booking website template for small beauty salons and service businesses in Latvia (Astro + Supabase)",
+  "scripts": {
+    "dev": "astro dev",
+    "build": "astro build",
+    "preview": "astro preview",
+    "check": "astro check",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:db": "TEST_DB=1 vitest run",
+    "db:start": "supabase start",
+    "db:stop": "supabase stop",
+    "db:reset": "supabase db reset",
+    "create-admin": "node --env-file-if-exists=.env scripts/create-admin.mjs",
+    "deploy": "astro build && wrangler deploy",
+    "db:push": "supabase db push",
+    "og-image": "node scripts/make-og-image.mjs"
+  },
+  "dependencies": {
+    "@astrojs/cloudflare": "^14.3.4",
+    "@astrojs/netlify": "^8.2.9",
+    "@astrojs/node": "^11.1.7",
+    "@astrojs/react": "^7.0.1",
+    "@fontsource-variable/inter": "^5.3.0",
+    "@fontsource-variable/playfair-display": "^5.3.0",
+    "@supabase/ssr": "^0.12.7",
+    "@supabase/supabase-js": "^2.117.3",
+    "@tailwindcss/vite": "^4.3.3",
+    "astro": "^7.3.8",
+    "date-fns": "^4.4.0",
+    "date-fns-tz": "^3.2.0",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0",
+    "tailwindcss": "^4.3.3"
+  },
+  "devDependencies": {
+    "@astrojs/check": "^0.9.10",
+    "@types/pg": "^8.23.1",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "pg": "^8.23.1",
+    "sharp": "^0.35.5",
+    "supabase": "^2.120.0",
+    "typescript": "^5.9.3",
+    "vitest": "^5.0.3",
+    "wrangler": "^4.149.0"
+  },
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22.12"
+  }
+}

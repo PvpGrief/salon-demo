@@ -1,0 +1,46 @@
+---
+/**
+ * GDPR data notice. The site uses only strictly necessary cookies (admin
+ * login) and no tracking, so no consent is required – this is an informative
+ * notice. If you ever add analytics or marketing pixels, replace this with a
+ * real consent banner and load those scripts only after consent.
+ */
+import { t } from '../config/texts';
+---
+
+<div
+  id="cookie-notice"
+  role="region"
+  aria-label="Sīkdatņu paziņojums"
+  class="fixed inset-x-3 bottom-3 z-50 hidden sm:inset-x-auto sm:right-4 sm:bottom-4 sm:max-w-md"
+>
+  <div class="card flex flex-col gap-3 p-4 text-sm shadow-xl sm:flex-row sm:items-end">
+    <p class="text-ink/90">
+      {t.cookies.text}
+      <a href="/privatuma-politika" class="font-medium text-brand underline">{t.cookies.more}</a>.
+    </p>
+    <button type="button" class="btn-primary !min-h-10 shrink-0 !px-5 !py-2 text-sm" data-cookie-ok>{t.cookies.ok}</button>
+  </div>
+</div>
+
+<script>
+  const KEY = 'data-notice-ack';
+  const box = document.getElementById('cookie-notice');
+  let seen = false;
+  try {
+    seen = localStorage.getItem(KEY) === '1';
+  } catch {
+    /* storage blocked – show the notice */
+  }
+  if (box && !seen) {
+    box.classList.remove('hidden');
+    box.querySelector('[data-cookie-ok]')?.addEventListener('click', () => {
+      try {
+        localStorage.setItem(KEY, '1');
+      } catch {
+        /* ignore */
+      }
+      box.classList.add('hidden');
+    });
+  }
+</script>

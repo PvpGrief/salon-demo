@@ -1,0 +1,26 @@
+// Cloudflare Workers configuration (default hosting target).
+//
+// Workers Builds settings (dashboard → your Worker → Settings → Build):
+//   Build command:   npm run build
+//   Deploy command:  npx wrangler deploy
+//   Root directory:  (empty)
+//
+// `npm run build` (Astro + @astrojs/cloudflare) generates the real deploy
+// config in dist/server/wrangler.json – entry point and static assets
+// (dist/client) included – and `wrangler deploy` picks it up automatically.
+// So do NOT add "main" or "assets" here, and never run `wrangler deploy`
+// without building first.
+//
+// "name" MUST equal the Worker's name in the Cloudflare dashboard.
+// Secrets (SUPABASE_*, BREVO_API_KEY) are NOT stored here – set them in
+// dashboard → your Worker → Settings → Variables and Secrets (type "Secret"),
+// or with `npx wrangler secret put NAME`. See README.md.
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "salon-demo",
+  "compatibility_date": "2026-09-01",
+  "compatibility_flags": ["nodejs_compat"],
+  // Keep variables added in the dashboard when deploying.
+  "keep_vars": true,
+  "observability": { "enabled": true }
+}

@@ -1,0 +1,136 @@
+---
+/**
+ * Admin layout: compact header, bottom tab bar on phones, top nav on desktop.
+ * Flash messages: redirect with ?ok=<key> (see FLASH below).
+ */
+import '../styles/global.css';
+import { actions } from 'astro:actions';
+import { business } from '../config/business';
+
+interface Props {
+  title: string;
+  /** Hide navigation (login page). */
+  bare?: boolean;
+}
+const { title, bare = false } = Astro.props;
+
+const FLASH: Record<string, string> = {
+  saglabats: 'Izmaiņas saglabātas.',
+  izveidots: 'Pieraksts izveidots.',
+  atcelts: 'Pieraksts atcelts.',
+  atjaunots: 'Pieraksts atjaunots.',
+  dzests: 'Ieraksts dzēsts.',
+  bloks: 'Laiks bloķēts.',
+  slegts: 'Diena(s) atzīmētas kā slēgtas.',
+  parole: 'Parole nomainīta.',
+  anonimizets: 'Veco pierakstu klientu dati dzēsti.',
+};
+const okKey = Astro.url.searchParams.get('ok') ?? '';
+const flash = FLASH[okKey];
+const warn = Astro.url.searchParams.get('bridinajums');
+
+const path = Astro.url.pathname.replace(/\/$/, '') || '/admin';
+const nav = [
+  { href: '/admin', label: 'Pieraksti', icon: 'M8 7V3m8 4V3M4 11h16M5 5h14a1 1 0 011 1v13a1 1 0 01-1 1H5a1 1 0 01-1-1V6a1 1 0 011-1z' },
+  { href: '/admin/pieraksti/jauns', label: 'Jauns', icon: 'M12 5v14M5 12h14' },
+  { href: '/admin/bloki', label: 'Bloķēt', icon: 'M18.4 5.6L5.6 18.4M21 12a9 9 0 11-18 0 9 9 0 0118 0z' },
+  { href: '/admin/meistari', label: 'Meistari', icon: 'M17 20v-1a4 4 0 00-4-4H7a4 4 0 00-4 4v1M10 11a4 4 0 100-8 4 4 0 000 8zM21 20v-1a4 4 0 00-3-3.9M16 3.1a4 4 0 010 7.8' },
+  { href: '/admin/pakalpojumi', label: 'Pakalpojumi', icon: 'M9 6h11M9 12h11M9 18h11M5 6h.01M5 12h.01M5 18h.01' },
+];
+const isActive = (href: string) => (href === '/admin' ? path === '/admin' || path.startsWith('/admin/pieraksti/') && !path.endsWith('/jauns') : path.startsWith(href));
+const th = business.theme;
+const themeCss = `:root{--brand:${th.primary};--accent:${th.accent};--bg:#f6f4f3;--surface:#fff;--ink:${th.text};--muted:${th.muted};}`;
+---
+
+<!doctype html>
+<html lang="lv">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="robots" content="noindex, nofollow" />
+    <title>{title} · Administrācija · {business.shortName}</title>
+    <link rel="icon" href={business.favicon} type="image/svg+xml" />
+    <meta name="theme-color" content={th.primary} />
+    <style is:inline set:html={themeCss} />
+  </head>
+  <body class="min-h-screen bg-bg text-[15px]">
+    {
+      !bare && (
+        <header class="sticky top-0 z-30 border-b border-line bg-surface/95 backdrop-blur">
+          <div class="mx-auto flex h-14 max-w-6xl items-center gap-3 px-4">
+            <a href="/admin" class="flex min-w-0 items-center gap-2 font-semibold">
+              <img src={business.logo.src} alt="" width="28" height="28" class="size-7" />
+              <span class="truncate">{business.shortName}</span>
+              <span class="hidden rounded-full bg-brand-soft px-2 py-0.5 text-xs font-medium text-brand sm:inline">Administrācija</span>
+            </a>
+            <nav class="ml-4 hidden flex-1 items-center gap-1 md:flex" aria-label="Administrācijas navigācija">
+              {nav.map((n) => (
+                <a
+                  href={n.href}
+                  class:list={[
+                    'rounded-lg px-3 py-2 text-sm font-medium',
+                    isActive(n.href) ? 'bg-brand-soft text-brand' : 'text-ink/80 hover:bg-bg',
+                  ]}
+                >
+                  {n.label}
+                </a>
+              ))}
+            </nav>
+            <div class="ml-auto flex items-center gap-1">
+              <a href="/" target="_blank" class="hidden rounded-lg px-3 py-2 text-sm text-muted hover:bg-bg sm:block">Skatīt vietni ↗</a>
+              <a
+                href="/admin/iestatijumi"
+                class:list={['rounded-lg p-2 hover:bg-bg', path.startsWith('/admin/iestatijumi') && 'text-brand']}
+                aria-label="Iestatījumi"
+                title="Iestatījumi"
+              >
+                <svg class="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+                  <path d="M12 15a3 3 0 100-6 3 3 0 000 6z" />
+                  <path d="M19.4 15a1.7 1.7 0 00.3 1.8l.1.1a2 2 0 11-2.8 2.8l-.1-.1a1.7 1.7 0 00-1.8-.3 1.7 1.7 0 00-1 1.5V21a2 2 0 11-4 0v-.1a1.7 1.7 0 00-1.1-1.5 1.7 1.7 0 00-1.8.3l-.1.1a2 2 0 11-2.8-2.8l.1-.1a1.7 1.7 0 00.3-1.8 1.7 1.7 0 00-1.5-1H3a2 2 0 110-4h.1a1.7 1.7 0 001.5-1.1 1.7 1.7 0 00-.3-1.8l-.1-.1a2 2 0 112.8-2.8l.1.1a1.7 1.7 0 001.8.3H9a1.7 1.7 0 001-1.5V3a2 2 0 114 0v.1a1.7 1.7 0 001 1.5 1.7 1.7 0 001.8-.3l.1-.1a2 2 0 112.8 2.8l-.1.1a1.7 1.7 0 00-.3 1.8V9a1.7 1.7 0 001.5 1H21a2 2 0 110 4h-.1a1.7 1.7 0 00-1.5 1z" />
+                </svg>
+              </a>
+              <form method="POST" action={'/admin/login' + actions.admin.logout}>
+                <button class="rounded-lg px-3 py-2 text-sm font-medium text-muted hover:bg-bg hover:text-ink">Iziet</button>
+              </form>
+            </div>
+          </div>
+        </header>
+      )
+    }
+
+    <main class:list={['mx-auto max-w-6xl px-4 py-5 sm:py-8', !bare && 'pb-28 md:pb-10']}>
+      {flash && <p class="alert-success mb-4" role="status">{flash}</p>}
+      {warn && <p class="alert-error mb-4" role="alert">{warn}</p>}
+      <slot />
+    </main>
+
+    {
+      !bare && (
+        <nav
+          class="fixed inset-x-0 bottom-0 z-30 border-t border-line bg-surface pb-[env(safe-area-inset-bottom)] md:hidden"
+          aria-label="Administrācijas navigācija (mobilā)"
+        >
+          <ul class="grid grid-cols-5">
+            {nav.map((n) => (
+              <li>
+                <a
+                  href={n.href}
+                  class:list={[
+                    'flex flex-col items-center gap-0.5 py-2 text-[11px] font-medium',
+                    isActive(n.href) ? 'text-brand' : 'text-muted',
+                  ]}
+                  aria-current={isActive(n.href) ? 'page' : undefined}
+                >
+                  <svg class="size-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d={n.icon} />
+                  </svg>
+                  {n.label}
+                </a>
+              </li>
+            ))}
+          </ul>
+        </nav>
+      )
+    }
+  </body>
+</html>

@@ -1,0 +1,124 @@
+---
+import { actions, isInputError } from 'astro:actions';
+import Admin from '../../../layouts/Admin.astro';
+import BookingForm from '../../../components/admin/BookingForm.astro';
+import { formatPhone, telHref } from '../../../lib/format';
+import { formatDateTime, formatDateWithWeekday, toRigaDate, toRigaTime } from '../../../lib/time';
+
+const id = Astro.params.id!;
+const save = Astro.getActionResult(actions.admin.saveBooking);
+const status = Astro.getActionResult(actions.admin.setBookingStatus);
+const del = Astro.getActionResult(actions.admin.deleteBooking);
+if (save && !save.error) return Astro.redirect(`/admin/pieraksti/${id}?ok=saglabats`);
+if (status && !status.error) return Astro.redirect(`/admin/pieraksti/${id}?ok=${status.data.status === 'cancelled' ? 'atcelts' : 'atjaunots'}`);
+if (del && !del.error) return Astro.redirect('/admin?ok=dzests');
+
+const supabase = Astro.locals.supabase!;
+const [bookingRes, services, masters, ms] = await Promise.all([
+  supabase.from('bookings').select('*').eq('id', id).maybeSingle(),
+  supabase.from('services').select('id, name, duration_min, active').order('sort_order').order('name'),
+  supabase.from('masters').select('id, name, active').order('sort_order').order('name'),
+  supabase.from('master_services').select('master_id, service_id'),
+]);
+const b = bookingRes.data;
+if (!b) return new Response(null, { status: 404, statusText: 'Not found' });
+
+let posted: Record<string, string> = {};
+if (Astro.request.method === 'POST' && save?.error) {
+  try {
+    posted = Object.fromEntries([...(await Astro.request.formData()).entries()].map(([k, v]) => [k, String(v)]));
+  } catch {
+    /* body already consumed */
+  }
+}
+const start = new Date(b.starts_at);
+const end = new Date(b.ends_at);
+const values = {
+  id: b.id,
+  serviceId: posted.serviceId ?? b.service_id,
+  masterId: posted.masterId ?? b.master_id,
+  date: posted.date ?? toRigaDate(start),
+  time: posted.time ?? toRigaTime(start),
+  durationMin: posted.durationMin ?? Math.round((end.getTime() - start.getTime()) / 60_000),
+  name: posted.name ?? b.customer_name,
+  phone: posted.phone ?? b.customer_phone,
+  email: posted.email ?? b.customer_email ?? '',
+  comment: posted.comment ?? b.comment ?? '',
+};
+const cancelled = b.status === 'cancelled';
+const statusError = status?.error?.message ?? del?.error?.message;
+---
+
+<Admin title={b.customer_name}>
+  <a href={`/admin?datums=${toRigaDate(start)}`} class="text-sm text-muted hover:underline">‹ Pieraksti {formatDateWithWeekday(toRigaDate(start))}</a>
+  <div class="mt-2 mb-4 flex flex-wrap items-start justify-between gap-3">
+    <div>
+      <h1 class="text-2xl font-semibold">
+        {b.customer_name}
+        {cancelled && <span class="ml-2 rounded-full bg-red-50 px-2.5 py-1 align-middle text-sm font-medium text-red-700">Atcelts</span>}
+      </h1>
+      <p class="mt-1 text-muted">
+        {formatDateWithWeekday(toRigaDate(start))}, {toRigaTime(start)}–{toRigaTime(end)}
+      </p>
+    </div>
+    <div class="flex gap-2">
+      <a class="btn-outline !min-h-10 !px-4 text-sm" href={telHref(b.customer_phone)}>Zvanīt {formatPhone(b.customer_phone)}</a>
+    </div>
+  </div>
+
+  {statusError && <p class="alert-error mb-4" role="alert">{statusError}</p>}
+
+  <BookingForm
+    values={values}
+    services={services.data ?? []}
+    masters={masters.data ?? []}
+    masterServices={ms.data ?? []}
+    error={save?.error && !isInputError(save.error) ? save.error.message : save?.error ? 'Lūdzu, pārbaudiet laukus.' : null}
+    fieldErrors={save?.error && isInputError(save.error) ? save.error.fields : {}}
+    submitLabel="Saglabāt izmaiņas"
+  />
+
+  <div class="card mt-6 space-y-4 p-4 sm:p-5">
+    <h2 class="text-lg font-semibold">Statuss</h2>
+    {
+      cancelled ? (
+        <form method="POST" action={actions.admin.setBookingStatus}>
+          <input type="hidden" name="id" value={b.id} />
+          <input type="hidden" name="status" value="confirmed" />
+          <p class="mb-3 text-sm text-muted">Pieraksts atcelts {b.cancelled_at ? formatDateTime(new Date(b.cancelled_at)) : ''}.</p>
+          <button class="btn-outline">Atjaunot pierakstu</button>
+        </form>
+      ) : (
+        <form method="POST" action={actions.admin.setBookingStatus} data-confirm="Atcelt šo pierakstu?">
+          <input type="hidden" name="id" value={b.id} />
+          <input type="hidden" name="status" value="cancelled" />
+          {b.customer_email && (
+            <label class="mb-3 flex items-center gap-3 text-sm">
+              <input type="checkbox" name="notify" class="size-5 accent-brand" checked />
+              Paziņot klientam e-pastā ({b.customer_email})
+            </label>
+          )}
+          <button class="btn bg-red-700 text-white hover:bg-red-800">Atcelt pierakstu</button>
+        </form>
+      )
+    }
+    <p class="text-sm text-muted">
+      Izveidots {formatDateTime(new Date(b.created_at))} · {b.source === 'online' ? 'tiešsaistē' : 'administrācijā'}
+    </p>
+    <details class="text-sm">
+      <summary class="cursor-pointer text-muted">Dzēst neatgriezeniski (piem., pēc klienta pieprasījuma)</summary>
+      <form method="POST" action={actions.admin.deleteBooking} class="mt-3" data-confirm="Dzēst pierakstu neatgriezeniski?">
+        <input type="hidden" name="id" value={b.id} />
+        <button class="btn-outline !min-h-9 border-red-300 !px-4 text-sm text-red-700">Dzēst pierakstu</button>
+      </form>
+    </details>
+  </div>
+</Admin>
+
+<script>
+  document.querySelectorAll<HTMLFormElement>('form[data-confirm]').forEach((f) =>
+    f.addEventListener('submit', (e) => {
+      if (!confirm(f.dataset.confirm!)) e.preventDefault();
+    }),
+  );
+</script>

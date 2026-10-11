@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 600" role="img" aria-label="Meistara foto vieta">
+<rect width="480" height="600" fill="#e9d3d6"/>
+<circle cx="380" cy="90" r="70" fill="#fff" opacity=".35"/>
+<path d="M60 600c10-150 110-210 180-210s170 60 180 210z" fill="#c69aa3" opacity=".55"/>
+<rect x="210" y="300" width="60" height="70" rx="20" fill="#f6e7df"/>
+<ellipse cx="240" cy="230" rx="78" ry="92" fill="#f6e7df"/>
+<path d="M150 150c0-70 180-70 180 0v120c-20 30-40-60-90-60s-70 90-90 60z" fill="#c69aa3" opacity=".9"/>
+</svg>
