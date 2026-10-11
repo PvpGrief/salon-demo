@@ -202,7 +202,7 @@ commercial use.
    | Root directory / path | *(empty – repository root)* |
    | Build variables | none needed; `.node-version` pins Node 22 |
 
-4. The Worker name in the dashboard **must equal `"name"` in `wrangler.jsonc`** (default `salon-booking`). Either name the Worker `salon-booking`, or change `"name"` in `wrangler.jsonc` to your Worker's name and push.
+4. The Worker name in the dashboard **must equal `"name"` in `wrangler.jsonc`** (currently `salon-demo`). Either name the Worker the same, or change `"name"` in `wrangler.jsonc` to your Worker's name and push.
 5. **Settings → Variables and Secrets** (runtime, not "Build variables"): add `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY` and optionally `BREVO_API_KEY`, all with type **Secret**. Then **Deployments → Retry/redeploy** (or push a commit).
    - The build itself needs no secrets; they are read at runtime.
    - `keep_vars` in `wrangler.jsonc` stops deploys from removing variables you added in the dashboard.

@@ -17,7 +17,7 @@
 // or with `npx wrangler secret put NAME`. See README.md.
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "salon-booking",
+  "name": "salon-demo",
   "compatibility_date": "2026-09-01",
   "compatibility_flags": ["nodejs_compat"],
   // Keep variables added in the dashboard when deploying.
