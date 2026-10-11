@@ -204,7 +204,7 @@ export default function BookingWizard(props: Props) {
   const nameOk = form.name.trim().length >= 2;
   const formOk = phoneOk && emailOk && nameOk;
 
-  async function submit(e: React.FormEvent) {
+  async function submit(e: { preventDefault(): void }) {
     e.preventDefault();
     setTouched({ name: true, phone: true, email: true });
     if (!formOk || !service || !slot || submitting) return;

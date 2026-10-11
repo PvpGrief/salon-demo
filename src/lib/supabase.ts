@@ -23,6 +23,7 @@ export function serviceClient(): SupabaseClient {
 }
 
 export function authClient(request: Request, cookies: AstroCookies): SupabaseClient {
+  const secure = new URL(request.url).protocol === 'https:';
   return createServerClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
     cookies: {
       getAll() {
@@ -33,7 +34,7 @@ export function authClient(request: Request, cookies: AstroCookies): SupabaseCli
       },
       setAll(toSet) {
         for (const { name, value, options } of toSet) {
-          cookies.set(name, value, { ...options, path: '/', sameSite: 'lax', httpOnly: true });
+          cookies.set(name, value, { ...options, path: '/', sameSite: 'lax', httpOnly: true, secure });
         }
       },
     },

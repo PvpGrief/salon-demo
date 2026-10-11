@@ -1,0 +1,183 @@
+---
+/** Closed days (whole salon) and master blocks (vacation, sick day, lunch). */
+import { actions } from 'astro:actions';
+import Admin from '../../layouts/Admin.astro';
+import TimeSelect from '../../components/admin/TimeSelect.astro';
+import { addDays, formatDate, formatDateWithWeekday, toRigaDate, toRigaTime, todayRiga } from '../../lib/time';
+
+const closedRes = Astro.getActionResult(actions.admin.addClosedDays);
+const blockRes = Astro.getActionResult(actions.admin.addBlock);
+const delClosed = Astro.getActionResult(actions.admin.deleteClosedDay);
+const delBlock = Astro.getActionResult(actions.admin.deleteBlock);
+
+const warnFor = (n: number) => `Uzmanību: šajā laikā ir ${n} ${n === 1 ? 'aktīvs pieraksts' : 'aktīvi pieraksti'}. Sazinieties ar klientiem un, ja nepieciešams, atceliet tos sadaļā „Pieraksti”.`;
+if (closedRes && !closedRes.error) {
+  return Astro.redirect(`/admin/bloki?ok=slegts${closedRes.data.conflicts ? `&bridinajums=${encodeURIComponent(warnFor(closedRes.data.conflicts))}` : ''}`);
+}
+if (blockRes && !blockRes.error) {
+  return Astro.redirect(`/admin/bloki?ok=bloks${blockRes.data.conflicts ? `&bridinajums=${encodeURIComponent(warnFor(blockRes.data.conflicts))}` : ''}`);
+}
+if ((delClosed && !delClosed.error) || (delBlock && !delBlock.error)) return Astro.redirect('/admin/bloki?ok=dzests');
+
+const supabase = Astro.locals.supabase!;
+const today = todayRiga();
+const [masters, closed, blocks] = await Promise.all([
+  supabase.from('masters').select('id, name, active').order('sort_order').order('name'),
+  supabase.from('closed_days').select('day, reason').gte('day', today).order('day'),
+  supabase.from('master_blocks').select('id, master_id, starts_at, ends_at, reason').gt('ends_at', new Date().toISOString()).order('starts_at'),
+]);
+const masterName = new Map((masters.data ?? []).map((m) => [m.id, m.name]));
+
+function blockRange(k: { starts_at: string; ends_at: string }) {
+  const s = new Date(k.starts_at);
+  const e = new Date(k.ends_at);
+  const sd = toRigaDate(s);
+  const allDay = toRigaTime(s) === '00:00' && toRigaTime(e) === '00:00';
+  if (allDay) {
+    const last = addDays(toRigaDate(e), -1);
+    return last === sd ? `${formatDate(sd)} (visa diena)` : `${formatDate(sd)} – ${formatDate(last)} (visas dienas)`;
+  }
+  const ed = toRigaDate(e);
+  return ed === sd ? `${formatDate(sd)}, ${toRigaTime(s)}–${toRigaTime(e)}` : `${formatDate(sd)} ${toRigaTime(s)} – ${formatDate(ed)} ${toRigaTime(e)}`;
+}
+const err = closedRes?.error?.message ?? blockRes?.error?.message ?? delClosed?.error?.message ?? delBlock?.error?.message;
+---
+
+<Admin title="Bloķēt laiku">
+  <h1 class="text-2xl font-semibold">Bloķēt laiku</h1>
+  <p class="mt-1 text-muted">Bloķētajā laikā klienti nevar pierakstīties tiešsaistē. Esošie pieraksti netiek atcelti automātiski.</p>
+  {err && <p class="alert-error mt-4" role="alert">{err}</p>}
+
+  <div class="mt-6 grid gap-6 lg:grid-cols-2">
+    <!-- Master block -->
+    <section class="card p-4 sm:p-5">
+      <h2 class="text-lg font-semibold">Meistara bloķēšana</h2>
+      <p class="hint">Atvaļinājums, slimība, pusdienas, ārsta vizīte…</p>
+      <form method="POST" action={actions.admin.addBlock} class="mt-4 space-y-4" data-block-form>
+        <div>
+          <label class="label" for="b-master">Meistars</label>
+          <select id="b-master" name="masterId" class="input" required>
+            {(masters.data ?? []).filter((m) => m.active).map((m) => <option value={m.id}>{m.name}</option>)}
+          </select>
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="label" for="b-from">No datuma</label>
+            <input id="b-from" name="from" type="date" class="input" required value={today} min={today} />
+          </div>
+          <div>
+            <label class="label" for="b-to">Līdz datumam</label>
+            <input id="b-to" name="to" type="date" class="input" min={today} />
+          </div>
+        </div>
+        <label class="flex items-center gap-3 text-sm font-medium">
+          <input type="checkbox" name="allDay" class="size-5 accent-brand" data-all-day checked />
+          Visa diena
+        </label>
+        <div class="grid grid-cols-2 gap-3" data-times>
+          <div>
+            <label class="label" for="b-start">No plkst.</label>
+            <TimeSelect id="b-start" name="startTime" value="13:00" from="00:00" to="23:45" class="!w-full" />
+          </div>
+          <div>
+            <label class="label" for="b-end">Līdz plkst.</label>
+            <TimeSelect id="b-end" name="endTime" value="14:00" from="00:00" to="23:45" class="!w-full" />
+          </div>
+        </div>
+        <div>
+          <label class="label" for="b-reason">Iemesls (redz tikai administrācija)</label>
+          <input id="b-reason" name="reason" class="input" maxlength="200" placeholder="Atvaļinājums" />
+        </div>
+        <button class="btn-primary">Bloķēt</button>
+      </form>
+    </section>
+
+    <!-- Closed days -->
+    <section class="card p-4 sm:p-5">
+      <h2 class="text-lg font-semibold">Salons slēgts</h2>
+      <p class="hint">Svētku dienas vai citas dienas, kad nestrādā neviens.</p>
+      <form method="POST" action={actions.admin.addClosedDays} class="mt-4 space-y-4">
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="label" for="c-from">No datuma</label>
+            <input id="c-from" name="from" type="date" class="input" required value={today} min={today} />
+          </div>
+          <div>
+            <label class="label" for="c-to">Līdz datumam</label>
+            <input id="c-to" name="to" type="date" class="input" min={today} />
+          </div>
+        </div>
+        <div>
+          <label class="label" for="c-reason">Iemesls (redzams klientiem)</label>
+          <input id="c-reason" name="reason" class="input" maxlength="200" placeholder="Valsts svētki" />
+        </div>
+        <button class="btn-primary">Atzīmēt kā slēgtu</button>
+      </form>
+    </section>
+  </div>
+
+  <div class="mt-8 grid gap-6 lg:grid-cols-2">
+    <section>
+      <h2 class="mb-2 text-lg font-semibold">Gaidāmie bloķējumi</h2>
+      {
+        (blocks.data ?? []).length === 0 ? (
+          <p class="text-muted">Nav.</p>
+        ) : (
+          <ul class="card divide-y divide-line">
+            {(blocks.data ?? []).map((k) => (
+              <li class="flex items-center gap-3 p-3 sm:p-4">
+                <div class="min-w-0 flex-1">
+                  <p class="font-medium">{masterName.get(k.master_id)}</p>
+                  <p class="text-sm text-muted">
+                    {blockRange(k)}
+                    {k.reason && ` · ${k.reason}`}
+                  </p>
+                </div>
+                <form method="POST" action={actions.admin.deleteBlock} data-confirm="Noņemt bloķējumu?">
+                  <input type="hidden" name="id" value={k.id} />
+                  <button class="rounded-lg px-3 py-2 text-sm font-medium text-red-700 hover:bg-red-50">Noņemt</button>
+                </form>
+              </li>
+            ))}
+          </ul>
+        )
+      }
+    </section>
+    <section>
+      <h2 class="mb-2 text-lg font-semibold">Slēgtās dienas</h2>
+      {
+        (closed.data ?? []).length === 0 ? (
+          <p class="text-muted">Nav.</p>
+        ) : (
+          <ul class="card divide-y divide-line">
+            {(closed.data ?? []).map((c) => (
+              <li class="flex items-center gap-3 p-3 sm:p-4">
+                <div class="min-w-0 flex-1">
+                  <p class="font-medium">{formatDateWithWeekday(c.day)}</p>
+                  {c.reason && <p class="text-sm text-muted">{c.reason}</p>}
+                </div>
+                <form method="POST" action={actions.admin.deleteClosedDay} data-confirm="Noņemt slēgto dienu?">
+                  <input type="hidden" name="day" value={c.day} />
+                  <button class="rounded-lg px-3 py-2 text-sm font-medium text-red-700 hover:bg-red-50">Noņemt</button>
+                </form>
+              </li>
+            ))}
+          </ul>
+        )
+      }
+    </section>
+  </div>
+</Admin>
+
+<script>
+  document.querySelectorAll<HTMLFormElement>('form[data-confirm]').forEach((f) =>
+    f.addEventListener('submit', (e) => {
+      if (!confirm(f.dataset.confirm!)) e.preventDefault();
+    }),
+  );
+  const allDay = document.querySelector<HTMLInputElement>('[data-all-day]');
+  const times = document.querySelector<HTMLElement>('[data-times]');
+  const sync = () => times && allDay && (times.hidden = allDay.checked);
+  allDay?.addEventListener('change', sync);
+  sync();
+</script>

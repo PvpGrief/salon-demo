@@ -4,7 +4,7 @@
 -- alive). Runs automatically on `npx supabase db reset` (local).
 --
 -- For a REAL client: do NOT run this file. Add services and masters in /admin.
--- To load the demo into a hosted project: `npm run db:seed:remote` (see README).
+-- To load the demo into a hosted project: `npx supabase db push --include-seed` (see README).
 -- =============================================================================
 
 -- Idempotent: wipe demo-able tables first.

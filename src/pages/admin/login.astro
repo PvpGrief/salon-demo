@@ -1,0 +1,47 @@
+---
+import { actions } from 'astro:actions';
+import Admin from '../../layouts/Admin.astro';
+import { business } from '../../config/business';
+
+const login = Astro.getActionResult(actions.admin.login);
+if (login && !login.error) return Astro.redirect(login.data.next);
+const logout = Astro.getActionResult(actions.admin.logout);
+
+// Already logged in as admin → go to the dashboard.
+if (!login && !logout && Astro.locals.supabase) {
+  const { data } = await Astro.locals.supabase.auth.getUser();
+  if (data.user) {
+    const { data: ok } = await Astro.locals.supabase.rpc('is_admin');
+    if (ok) return Astro.redirect('/admin');
+  }
+}
+
+const next = Astro.url.searchParams.get('next') ?? '/admin';
+const forbidden = Astro.url.searchParams.get('error') === 'forbidden';
+---
+
+<Admin title="Pieteikšanās" bare>
+  <div class="mx-auto mt-10 max-w-sm sm:mt-20">
+    <div class="text-center">
+      <img src={business.logo.src} alt="" width="56" height="56" class="mx-auto size-14" />
+      <h1 class="mt-4 text-2xl font-semibold">{business.shortName}</h1>
+      <p class="text-muted">Administrācija</p>
+    </div>
+    <form method="POST" action={actions.admin.login} class="card mt-8 space-y-4 p-6">
+      {login?.error && <p class="alert-error" role="alert">{login.error.message}</p>}
+      {forbidden && <p class="alert-error" role="alert">Šim lietotājam nav administratora tiesību.</p>}
+      {logout && !logout.error && <p class="alert-success" role="status">Jūs esat izgājis no sistēmas.</p>}
+      <input type="hidden" name="next" value={next} />
+      <div>
+        <label for="email" class="label">E-pasts</label>
+        <input id="email" name="email" type="email" autocomplete="username" required class="input" />
+      </div>
+      <div>
+        <label for="password" class="label">Parole</label>
+        <input id="password" name="password" type="password" autocomplete="current-password" required class="input" />
+      </div>
+      <button class="btn-primary w-full">Pieteikties</button>
+    </form>
+    <p class="mt-6 text-center text-sm text-muted"><a href="/" class="underline">← Atpakaļ uz vietni</a></p>
+  </div>
+</Admin>

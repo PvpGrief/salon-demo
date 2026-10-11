@@ -1,0 +1,208 @@
+---
+/**
+ * Create / edit booking form. The admin may choose any time (e.g. outside
+ * working hours); the database still refuses overlaps with other bookings.
+ * "Brīvie laiki" suggestions come from /admin/api/slots.
+ */
+import { actions } from 'astro:actions';
+import TimeSelect from './TimeSelect.astro';
+
+interface Values {
+  id?: string;
+  serviceId?: string;
+  masterId?: string;
+  date?: string;
+  time?: string;
+  durationMin?: number | string;
+  name?: string;
+  phone?: string;
+  email?: string;
+  comment?: string;
+}
+
+interface Props {
+  values: Values;
+  services: { id: string; name: string; duration_min: number; active: boolean }[];
+  masters: { id: string; name: string; active: boolean }[];
+  masterServices: { master_id: string; service_id: string }[];
+  error?: string | null;
+  fieldErrors?: Record<string, string[] | undefined>;
+  submitLabel: string;
+}
+
+const { values: v, services, masters, masterServices, error, fieldErrors = {}, submitLabel } = Astro.props;
+const fe = (k: string) => fieldErrors[k]?.[0];
+const offered = JSON.stringify(masterServices.map((x) => [x.master_id, x.service_id]));
+---
+
+<form method="POST" action={actions.admin.saveBooking} class="space-y-5" data-booking-form data-offered={offered}>
+  {v.id && <input type="hidden" name="id" value={v.id} />}
+  {error && <p class="alert-error" role="alert">{error}</p>}
+
+  <div class="card space-y-4 p-4 sm:p-5">
+    <div class="grid gap-4 sm:grid-cols-2">
+      <div>
+        <label class="label" for="serviceId">Pakalpojums</label>
+        <select id="serviceId" name="serviceId" class="input" required>
+          <option value="">— izvēlieties —</option>
+          {
+            services.map((s) => (
+              <option value={s.id} data-duration={s.duration_min} selected={s.id === v.serviceId}>
+                {s.name} ({s.duration_min} min){s.active ? '' : ' – neaktīvs'}
+              </option>
+            ))
+          }
+        </select>
+        {fe('serviceId') && <p class="error-text">Izvēlieties pakalpojumu</p>}
+      </div>
+      <div>
+        <label class="label" for="masterId">Meistars</label>
+        <select id="masterId" name="masterId" class="input" required>
+          <option value="">— izvēlieties —</option>
+          {masters.map((m) => <option value={m.id} selected={m.id === v.masterId}>{m.name}{m.active ? '' : ' – neaktīvs'}</option>)}
+        </select>
+        {fe('masterId') && <p class="error-text">Izvēlieties meistaru</p>}
+        <p class="hint hidden text-amber-700" data-offer-warning>Šis meistars parasti nesniedz šo pakalpojumu.</p>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-2 gap-4 sm:grid-cols-3">
+      <div>
+        <label class="label" for="date">Datums</label>
+        <input id="date" name="date" type="date" class="input" required value={v.date} />
+        <p class="hint" data-date-label></p>
+        {fe('date') && <p class="error-text">{fe('date')}</p>}
+      </div>
+      <div>
+        <label class="label" for="time">Laiks</label>
+        <TimeSelect id="time" name="time" value={v.time} step={5} from="06:00" to="22:55" required empty="—" class="!w-full" />
+        {fe('time') && <p class="error-text">{fe('time')}</p>}
+      </div>
+      <div class="col-span-2 sm:col-span-1">
+        <label class="label" for="durationMin">Ilgums (min)</label>
+        <input id="durationMin" name="durationMin" type="number" min="5" max="600" step="5" class="input" value={v.durationMin} />
+        <p class="hint">Tukšs = pakalpojuma ilgums</p>
+      </div>
+    </div>
+
+    <div data-slots class="hidden">
+      <p class="mb-2 text-sm font-medium text-muted">Brīvie laiki šajā dienā:</p>
+      <div class="flex flex-wrap gap-1.5" data-slot-list></div>
+    </div>
+  </div>
+
+  <div class="card space-y-4 p-4 sm:p-5">
+    <div class="grid gap-4 sm:grid-cols-2">
+      <div>
+        <label class="label" for="name">Klienta vārds</label>
+        <input id="name" name="name" class="input" required maxlength="100" autocomplete="off" value={v.name} />
+        {fe('name') && <p class="error-text">{fe('name')}</p>}
+      </div>
+      <div>
+        <label class="label" for="phone">Tālrunis</label>
+        <input id="phone" name="phone" type="tel" class="input" required maxlength="30" autocomplete="off" value={v.phone} />
+        {fe('phone') && <p class="error-text">{fe('phone')}</p>}
+      </div>
+    </div>
+    <div>
+      <label class="label" for="email">E-pasts (neobligāti)</label>
+      <input id="email" name="email" type="email" class="input" maxlength="254" autocomplete="off" value={v.email} />
+      {fe('email') && <p class="error-text">{fe('email')}</p>}
+    </div>
+    <div>
+      <label class="label" for="comment">Komentārs</label>
+      <textarea id="comment" name="comment" class="input min-h-20" maxlength="1000">{v.comment}</textarea>
+    </div>
+    <label class="flex items-start gap-3 text-sm">
+      <input type="checkbox" name="notify" class="mt-0.5 size-5 accent-brand" />
+      <span>
+        {v.id ? 'Nosūtīt klientam e-pastu, ja mainās laiks vai meistars' : 'Nosūtīt klientam apstiprinājumu e-pastā'}
+        <span class="block text-muted">Tikai ja norādīts e-pasts un ir iestatīts Brevo.</span>
+      </span>
+    </label>
+  </div>
+
+  <div class="flex flex-col gap-3 sm:flex-row">
+    <button class="btn-primary">{submitLabel}</button>
+    <a href="/admin" class="btn-outline">Atpakaļ</a>
+  </div>
+</form>
+
+<script>
+  const form = document.querySelector<HTMLFormElement>('[data-booking-form]');
+  if (form) {
+    const offered: [string, string][] = JSON.parse(form.dataset.offered || '[]');
+    const service = form.querySelector<HTMLSelectElement>('#serviceId')!;
+    const master = form.querySelector<HTMLSelectElement>('#masterId')!;
+    const date = form.querySelector<HTMLInputElement>('#date')!;
+    const time = form.querySelector<HTMLSelectElement>('#time')!;
+    const duration = form.querySelector<HTMLInputElement>('#durationMin')!;
+    const box = form.querySelector<HTMLElement>('[data-slots]')!;
+    const list = form.querySelector<HTMLElement>('[data-slot-list]')!;
+    const warning = form.querySelector<HTMLElement>('[data-offer-warning]')!;
+    const id = form.querySelector<HTMLInputElement>('input[name="id"]')?.value ?? '';
+
+    const durationOf = () => Number(service.selectedOptions[0]?.dataset.duration || 0);
+    let lastService = service.value;
+
+    const dateLabel = form.querySelector<HTMLElement>('[data-date-label]')!;
+    const WD = ['svētdiena', 'pirmdiena', 'otrdiena', 'trešdiena', 'ceturtdiena', 'piektdiena', 'sestdiena'];
+    function showDate() {
+      const [y, m, d] = date.value.split('-');
+      dateLabel.textContent = date.value ? `${WD[new Date(Date.UTC(+y, +m - 1, +d)).getUTCDay()]}, ${d}.${m}.${y}` : '';
+    }
+    date.addEventListener('change', showDate);
+    showDate();
+
+    function render(times: string[]) {
+      list.replaceChildren();
+      if (!times.length) {
+        const p = document.createElement('p');
+        p.className = 'text-sm text-muted';
+        p.textContent = 'Brīvu laiku nav (varat ievadīt laiku manuāli).';
+        list.append(p);
+      }
+      for (const t of times) {
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.textContent = t;
+        b.className =
+          'rounded-lg border px-2.5 py-1.5 text-sm font-medium tabular-nums ' +
+          (t === time.value ? 'border-brand bg-brand text-white' : 'border-line bg-surface hover:border-brand');
+        b.addEventListener('click', () => {
+          time.value = t;
+          render(times);
+        });
+        list.append(b);
+      }
+      box.classList.remove('hidden');
+    }
+
+    async function load() {
+      warning.classList.toggle('hidden', !service.value || !master.value || offered.some(([m, s]) => m === master.value && s === service.value));
+      if (!service.value || !master.value || !date.value) return box.classList.add('hidden');
+      const qs = new URLSearchParams({ service: service.value, master: master.value, date: date.value, duration: duration.value || '', exclude: id });
+      try {
+        const res = await fetch(`/admin/api/slots?${qs}`);
+        if (!res.ok) throw new Error();
+        render((await res.json()).times);
+      } catch {
+        box.classList.add('hidden');
+      }
+    }
+
+    service.addEventListener('change', () => {
+      // Follow the service duration unless the admin typed a custom one.
+      const prev = Number(service.querySelector<HTMLOptionElement>(`option[value="${lastService}"]`)?.dataset.duration || 0);
+      if (!duration.value || Number(duration.value) === prev) duration.value = String(durationOf() || '');
+      lastService = service.value;
+      load();
+    });
+    master.addEventListener('change', load);
+    date.addEventListener('change', load);
+    duration.addEventListener('change', load);
+    time.addEventListener('change', load);
+    if (!duration.value && durationOf()) duration.value = String(durationOf());
+    load();
+  }
+</script>

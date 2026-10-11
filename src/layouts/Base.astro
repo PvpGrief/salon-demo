@@ -55,7 +55,7 @@ const themeCss = `:root{--brand:${th.primary};--accent:${th.accent};--bg:${th.ba
     {
       jsonLd &&
         (Array.isArray(jsonLd) ? jsonLd : [jsonLd]).map((obj) => (
-          <script type="application/ld+json" is:inline set:html={JSON.stringify(obj)} />
+          <script type="application/ld+json" is:inline set:html={JSON.stringify(obj).replace(/</g, '\\u003c')} />
         ))
     }
     <slot name="head" />

@@ -1,0 +1,51 @@
+---
+import { actions, isInputError } from 'astro:actions';
+import Admin from '../../../layouts/Admin.astro';
+import BookingForm from '../../../components/admin/BookingForm.astro';
+import { isDateString, todayRiga } from '../../../lib/time';
+
+const result = Astro.getActionResult(actions.admin.saveBooking);
+if (result && !result.error) return Astro.redirect(`/admin/pieraksti/${result.data.id}?ok=izveidots`);
+
+const supabase = Astro.locals.supabase!;
+const [services, masters, ms] = await Promise.all([
+  supabase.from('services').select('id, name, duration_min, active').order('sort_order').order('name'),
+  supabase.from('masters').select('id, name, active').order('sort_order').order('name'),
+  supabase.from('master_services').select('master_id, service_id'),
+]);
+
+// Re-fill the form after a failed submit.
+let posted: Record<string, string> = {};
+if (Astro.request.method === 'POST') {
+  try {
+    posted = Object.fromEntries([...(await Astro.request.formData()).entries()].map(([k, v]) => [k, String(v)]));
+  } catch {
+    /* body already consumed */
+  }
+}
+const q = Astro.url.searchParams;
+const values = {
+  serviceId: posted.serviceId ?? q.get('pakalpojums') ?? '',
+  masterId: posted.masterId ?? q.get('meistars') ?? '',
+  date: posted.date ?? (isDateString(q.get('datums')) ? q.get('datums')! : todayRiga()),
+  time: posted.time ?? q.get('laiks') ?? '',
+  durationMin: posted.durationMin ?? '',
+  name: posted.name ?? '',
+  phone: posted.phone ?? '',
+  email: posted.email ?? '',
+  comment: posted.comment ?? '',
+};
+---
+
+<Admin title="Jauns pieraksts">
+  <h1 class="mb-4 text-2xl font-semibold">Jauns pieraksts</h1>
+  <BookingForm
+    values={values}
+    services={(services.data ?? []).filter((s) => s.active)}
+    masters={(masters.data ?? []).filter((m) => m.active)}
+    masterServices={ms.data ?? []}
+    error={result?.error && !isInputError(result.error) ? result.error.message : result?.error ? 'Lūdzu, pārbaudiet laukus.' : null}
+    fieldErrors={result?.error && isInputError(result.error) ? result.error.fields : {}}
+    submitLabel="Izveidot pierakstu"
+  />
+</Admin>
