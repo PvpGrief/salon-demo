@@ -29,6 +29,8 @@ export interface Fixture {
   masterB: string;
   /** a free, open local date ~20 days ahead */
   date: string;
+  /** the n-th open (not closed) date after `date`; day(0) = date. Use instead of addDays(date, n). */
+  day: (n: number) => string;
   at: (time: string, date?: string) => Date;
   cleanup: () => Promise<void>;
 }
@@ -70,6 +72,9 @@ export async function createFixture(db: pg.Client, label: string): Promise<Fixtu
   );
   let date = addDays(todayRiga(), 20);
   while (closed.has(date)) date = addDays(date, 1);
+  // Tests must not depend on the calendar: skip public holidays etc.
+  const openDays = [date];
+  for (let d = addDays(date, 1); openDays.length < 40; d = addDays(d, 1)) if (!closed.has(d)) openDays.push(d);
 
   return {
     serviceId,
@@ -77,6 +82,7 @@ export async function createFixture(db: pg.Client, label: string): Promise<Fixtu
     masterA,
     masterB,
     date,
+    day: (n) => openDays[n],
     at: (time, d = date) => rigaToUtc(d, time),
     cleanup: async () => {
       await db.query(`delete from bookings where master_id = any($1::uuid[])`, [[masterA, masterB]]);

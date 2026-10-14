@@ -20,14 +20,14 @@ beforeAll(async () => {
   booking = await createBooking(db, {
     serviceId: fx.serviceId,
     masterId: fx.masterA,
-    startsAt: fx.at('10:00', addDays(fx.date, 15)),
+    startsAt: fx.at('10:00', fx.day(15)),
     name: 'Slepena Persona',
     email: 'slepena@example.com',
   });
   await db.query(`insert into master_blocks (master_id, starts_at, ends_at, reason) values ($1, $2, $3, 'Slimības lapa')`, [
     fx.masterA,
-    fx.at('14:00', addDays(fx.date, 15)),
-    fx.at('15:00', addDays(fx.date, 15)),
+    fx.at('14:00', fx.day(15)),
+    fx.at('15:00', fx.day(15)),
   ]);
   for (const [id, email] of [
     [adminId, `admin-${adminId}@test.local`],
@@ -123,7 +123,7 @@ describe('anonymous visitor (anon key)', () => {
   });
 
   it('gets only busy intervals from get_public_schedule – no names, phones or reasons', async () => {
-    const day = addDays(fx.date, 15);
+    const day = fx.day(15);
     const r = await asRole(db, 'anon', () =>
       db.query(`select * from get_public_schedule($1, $2) where master_id = $3`, [
         fx.at('00:00', day),
@@ -214,7 +214,7 @@ describe('admin user', () => {
           db.query(
             `insert into bookings (service_id, master_id, starts_at, ends_at, blocked_until, customer_name, customer_phone, source)
              values ($1, $2, $3, $4, $4, 'Admins', '+37120000000', 'admin')`,
-            [fx.serviceId, fx.masterA, fx.at('10:30', addDays(fx.date, 15)), fx.at('11:00', addDays(fx.date, 15))],
+            [fx.serviceId, fx.masterA, fx.at('10:30', fx.day(15)), fx.at('11:00', fx.day(15))],
           ),
           'bookings_no_overlap',
         ),

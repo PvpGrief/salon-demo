@@ -3,6 +3,7 @@ import { actions, isInputError } from 'astro:actions';
 import Admin from '../../layouts/Admin.astro';
 import { business } from '../../config/business';
 import { emailEnabled } from '../../lib/email';
+import { smsEnabled } from '../../lib/sms';
 
 const save = Astro.getActionResult(actions.admin.saveSettings);
 const pw = Astro.getActionResult(actions.admin.changePassword);
@@ -65,6 +66,23 @@ const fields = [
           ) : (
             <p class="mt-2 text-sm text-muted">
               Izslēgti. Lai klienti saņemtu apstiprinājumus, iestatiet <code>BREVO_API_KEY</code> (sk. README).
+            </p>
+          )
+        }
+      </section>
+
+      <section class="card p-4 sm:p-5">
+        <h2 class="text-lg font-semibold">SMS</h2>
+        {
+          smsEnabled() ? (
+            <p class="mt-2 text-sm">
+              ✅ Ieslēgtas (Brevo). Sūtītājs: {business.sms.sender}.{' '}
+              {business.sms.confirmations === 'always' ? 'Apstiprinājums katram pierakstam.' : 'Apstiprinājums, ja klients nenorāda e-pastu.'}
+              <span class="mt-1 block text-muted">SMS tiek sūtītas tikai, ja Brevo kontā ir SMS kredīts.</span>
+            </p>
+          ) : (
+            <p class="mt-2 text-sm text-muted">
+              Izslēgtas. Nepieciešams <code>BREVO_API_KEY</code>, SMS kredīts Brevo kontā un <code>sms.enabled</code> failā <code>business.ts</code>.
             </p>
           )
         }

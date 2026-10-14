@@ -26,7 +26,7 @@ Why this stack:
 6. [Create the admin account](#create-the-admin-account)
 7. [Deploy to Cloudflare (default)](#deploy-to-cloudflare-default)
 8. [Deploy to Netlify (alternative)](#deploy-to-netlify-alternative)
-9. [E-mail with Brevo (optional)](#e-mail-with-brevo-optional)
+9. [E-mail and SMS with Brevo (optional)](#e-mail-and-sms-with-brevo-optional)
 10. [Customize for a new client](#customize-for-a-new-client)
 11. [Tests](#tests)
 12. [How booking safety works](#how-booking-safety-works)
@@ -48,7 +48,7 @@ Why this stack:
 - Free slots are calculated from each master's working hours, the service duration, existing bookings, master blocks, closed days and the booking rules (slot step, buffer, minimum notice, how far ahead).
 - Double booking is impossible: the database refuses overlapping bookings even when two requests arrive at the same moment.
 - A confirmation screen with "add to calendar" (Google Calendar and `.ics`).
-- If a Brevo key is set, the customer gets a confirmation e-mail with a cancel link (`/atcelt/<token>`) and the owner gets a copy.
+- The confirmation screen shows a cancel link (`/atcelt/<token>`). If a Brevo key is set, the customer also gets it by e-mail and/or SMS, and the owner gets an e-mail copy.
 - A public free/busy view (`/pieejamiba`) shows which masters are free or busy and when, without any customer data.
 
 **Admin panel** (`/admin`, password protected, works well on phones)
@@ -243,22 +243,42 @@ Per client, change `"name"` in `wrangler.jsonc` (the Worker name) and
 
 ---
 
-## E-mail with Brevo (optional)
+## E-mail and SMS with Brevo (optional)
 
-Without `BREVO_API_KEY`, everything works and no e-mails are sent. The
-confirmation screen tells the customer to save the details.
+One Brevo account and one `BREVO_API_KEY` cover both e-mail and SMS. Without
+the key, everything works and nothing is sent. The confirmation screen always
+shows the customer a cancel link and tells them to save the details.
 
-To turn e-mails on:
+**E-mail**
 1. Create a free account at [brevo.com](https://www.brevo.com) (EU provider, about 300 e-mails a day free).
 2. **Senders, Domains & Dedicated IPs**: add and verify the sender address or, better, the client's domain (add the DNS records Brevo shows, for good deliverability).
-3. **SMTP & API → API Keys → Generate a new API key**, and set it as `BREVO_API_KEY`.
+3. **SMTP & API → API Keys → Generate a new API key**, and set it as `BREVO_API_KEY` (Cloudflare: Settings → Variables and Secrets, type Secret).
 4. In `src/config/business.ts → email`, set `fromAddress` to the verified sender and `ownerNotifyTo` to the owner's address (or `''` for no copies).
 
-E-mails sent:
-- To the customer: a booking confirmation with a cancel link. Also, when the admin ticks "Nosūtīt…" or "Paziņot…", a rescheduled or cancelled notice.
-- To the owner: a copy of each new online booking and of each self-cancellation.
+**SMS** (uses the same key; SMS are prepaid)
+1. In Brevo, buy SMS credits (**SMS → Buy credits** or the plan page). Without credits Brevo refuses SMS; the site logs it and continues.
+2. In `src/config/business.ts → sms`:
+   - `enabled: true`
+   - `sender`: the name shown on the phone, up to 11 letters or digits (no spaces or diacritics), e.g. `Aurora`
+   - `confirmations`: `'always'`, or `'if-no-email'` to save credits
+   - `plainLetters: true` (recommended): ā→a, š→s… One SMS then holds 160 characters. With Latvian diacritics it holds only 70, so each message costs 2–3 SMS.
+3. The texts are in `src/config/texts.ts → sms`. Keep them short: the cancel link alone is about 70 characters.
 
-`/admin/iestatijumi` shows whether e-mail is switched on.
+SMS go only to mobile numbers. Latvian landlines (6…) are skipped automatically.
+
+**What is sent**
+
+| Event | Customer | Owner |
+|---|---|---|
+| Online booking | e-mail (if given) + SMS with cancel link | e-mail copy |
+| Admin creates a booking with "Nosūtīt klientam apstiprinājumu" ticked | e-mail + SMS with cancel link | – |
+| Admin reschedules with "Paziņot klientam…" ticked | e-mail + SMS with the new time | – |
+| Admin cancels with "Paziņot klientam" ticked | e-mail + SMS | – |
+| Customer cancels via the link | – (the page confirms) | e-mail |
+
+`/admin/iestatijumi` shows whether e-mail and SMS are switched on.
+
+> Not included yet: a reminder SMS the day before the visit. It needs a scheduled job (Cloudflare Cron Trigger); ask Claude Code to add it if you want it.
 
 ---
 

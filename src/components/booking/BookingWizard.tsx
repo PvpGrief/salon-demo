@@ -67,6 +67,9 @@ interface Result {
   startsAt: string;
   endsAt: string;
   emailSent: boolean;
+  smsSent: boolean;
+  phone: string;
+  cancelUrl: string;
   email: string | null;
   location: string;
 }
@@ -614,17 +617,26 @@ export default function BookingWizard(props: Props) {
                 ]}
               />
             </div>
-            <p className="mt-5 text-muted">
-              {result.emailSent && result.email ? (
-                <>
+            <div className="mt-5 space-y-1 text-muted">
+              {result.emailSent && result.email && (
+                <p>
                   {t.booking.successEmail} <strong className="text-ink">{result.email}</strong>.
-                </>
-              ) : (
-                t.booking.successNoEmail
+                </p>
               )}
-            </p>
+              {result.smsSent && (
+                <p>
+                  {t.booking.successSms} <strong className="text-ink">{result.phone}</strong>.
+                </p>
+              )}
+              {!result.emailSent && !result.smsSent && <p>{t.booking.successNoEmail}</p>}
+            </div>
             <p className="mt-2 text-sm text-muted">{props.arrivalNote}</p>
             <CalendarLinks result={result} businessName={props.businessName} />
+            <p className="mt-6 text-sm">
+              <a href={result.cancelUrl} className="text-muted underline hover:text-brand">
+                {t.booking.cancelHere}
+              </a>
+            </p>
             <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
               <button type="button" className="btn-outline" onClick={restart}>
                 {t.booking.newBooking}

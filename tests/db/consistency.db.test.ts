@@ -17,7 +17,7 @@ let day: string;
 beforeAll(async () => {
   db = await connect();
   fx = await createFixture(db, 'consistency');
-  day = addDays(fx.date, 20);
+  day = fx.day(20);
 
   // Make the day interesting: split shift for A, bookings, a block, a buffer.
   await db.query(`delete from working_hours where master_id = $1`, [fx.masterA]);

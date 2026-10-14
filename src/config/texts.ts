@@ -71,6 +71,8 @@ export const t = {
     privacyLink: 'privātuma politiku',
     successTitle: 'Paldies! Jūs esat pierakstīts.',
     successEmail: 'Apstiprinājums nosūtīts uz',
+    successSms: 'Īsziņa ar apstiprinājumu un atcelšanas saiti nosūtīta uz',
+    cancelHere: 'Ja nevarēsiet ierasties, atceliet pierakstu šeit',
     successNoEmail: 'Saglabājiet šo informāciju vai uzņemiet ekrānuzņēmumu.',
     addToCalendar: 'Pievienot kalendāram',
     newBooking: 'Veikt vēl vienu pierakstu',
@@ -112,6 +114,16 @@ export const t = {
     privacy: 'Privātuma politika',
     rights: 'Visas tiesības aizsargātas.',
     admin: 'Administrācija',
+  },
+  /**
+   * SMS texts. Placeholders: {name} salon short name, {date} dd.mm.yyyy,
+   * {time} HH:mm, {link} cancel link, {phone} salon phone.
+   * Keep them short: one SMS = 160 plain characters (link is ~70).
+   */
+  sms: {
+    confirmation: '{name}: pieraksts {date} plkst. {time} apstiprināts. Atcelt: {link}',
+    rescheduled: '{name}: jūsu pieraksts pārcelts uz {date} plkst. {time}. Atcelt: {link}',
+    cancelled: '{name}: jūsu pieraksts {date} plkst. {time} ir atcelts. Tālr. {phone}',
   },
   errors: {
     service_not_found: 'Izvēlētais pakalpojums vairs nav pieejams. Lūdzu, izvēlieties citu.',

@@ -7,6 +7,7 @@ import { ActionError, defineAction, type ActionAPIContext } from 'astro:actions'
 import { z } from 'astro/zod';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { sendBookingChanged, sendBookingConfirmation } from '../lib/email';
+import { sendBookingSms } from '../lib/sms';
 import { normalizePhone } from '../lib/format';
 import { authClient } from '../lib/supabase';
 import { addDays, isDateString, isTimeString, rigaToUtc, timeToMinutes } from '../lib/time';
@@ -145,19 +146,24 @@ const saveBooking = defineAction({
       : await supabase.from('bookings').insert({ ...row, source: 'admin' }).select('id, cancel_token').single();
     if (res.error) dbFail(res.error);
 
-    if (input.notify && input.email) {
+    if (input.notify) {
+      const cancelUrl = new URL(`/atcelt/${res.data.cancel_token}`, context.url.origin).href;
       const mail = {
         customerName: input.name,
-        customerEmail: input.email,
+        customerEmail: input.email || null,
         serviceName: svc.name,
         masterName: master.name,
         startsAt,
         durationMin: duration,
-        cancelUrl: new URL(`/atcelt/${res.data.cancel_token}`, context.url.origin).href,
+        cancelUrl,
       };
       const moved = previous && (new Date(previous.starts_at).getTime() !== startsAt.getTime() || previous.master_id !== input.masterId);
-      if (!input.id) await sendBookingConfirmation(mail);
-      else if (moved) await sendBookingChanged(mail, 'rescheduled');
+      // E-mail (if given) and SMS (if enabled); both skip silently when not configured.
+      if (!input.id) {
+        await Promise.all([sendBookingConfirmation(mail), sendBookingSms('confirmation', { phone, startsAt, cancelUrl })]);
+      } else if (moved) {
+        await Promise.all([sendBookingChanged(mail, 'rescheduled'), sendBookingSms('rescheduled', { phone, startsAt, cancelUrl })]);
+      }
     }
     return { id: res.data.id as string, created: !input.id };
   },
@@ -175,18 +181,22 @@ const setBookingStatus = defineAction({
       .select('customer_name, customer_email, customer_phone, starts_at, ends_at, services(name), masters(name)')
       .single();
     if (error) dbFail(error);
-    if (status === 'cancelled' && notify && data.customer_email) {
+    if (status === 'cancelled' && notify) {
       const rel = data as unknown as { services: { name: string }; masters: { name: string } };
-      await sendBookingChanged(
-        {
-          customerName: data.customer_name,
-          customerEmail: data.customer_email,
-          serviceName: rel.services?.name ?? '',
-          masterName: rel.masters?.name ?? '',
-          startsAt: new Date(data.starts_at),
-        },
-        'cancelled',
-      );
+      const startsAt = new Date(data.starts_at);
+      await Promise.all([
+        sendBookingChanged(
+          {
+            customerName: data.customer_name,
+            customerEmail: data.customer_email,
+            serviceName: rel.services?.name ?? '',
+            masterName: rel.masters?.name ?? '',
+            startsAt,
+          },
+          'cancelled',
+        ),
+        sendBookingSms('cancelled', { phone: data.customer_phone, startsAt }),
+      ]);
     }
     return { status };
   },

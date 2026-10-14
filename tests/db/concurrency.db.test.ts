@@ -53,7 +53,7 @@ function race(masterId: string | null, startsAt: Date) {
 
 describe('simultaneous bookings', () => {
   it(`${PARALLEL} parallel requests for the same master and time → exactly one succeeds`, async () => {
-    const startsAt = fx.at('10:00', addDays(fx.date, 10));
+    const startsAt = fx.at('10:00', fx.day(10));
     const results = await race(fx.masterA, startsAt);
 
     const ok = results.filter((r) => r.status === 'fulfilled');
@@ -70,7 +70,7 @@ describe('simultaneous bookings', () => {
   });
 
   it(`${PARALLEL} parallel "any master" requests → one booking per master, never two on one`, async () => {
-    const startsAt = fx.at('14:00', addDays(fx.date, 10));
+    const startsAt = fx.at('14:00', fx.day(10));
     const results = await race(null, startsAt);
 
     const ok = results.filter((r) => r.status === 'fulfilled') as PromiseFulfilledResult<{ master_id: string }>[];
@@ -79,7 +79,7 @@ describe('simultaneous bookings', () => {
   });
 
   it('parallel requests for overlapping (not identical) times → only one survives', async () => {
-    const day = addDays(fx.date, 11);
+    const day = fx.day(11);
     const times = ['10:00', '10:15', '10:30', '10:45'];
     const results = await Promise.allSettled(
       pool.map((c, i) => bookInTransaction(c, fx.masterB, fx.at(times[i % times.length], day))),

@@ -7,8 +7,9 @@ import { z } from 'astro/zod';
 import { business } from '../config/business';
 import { errorCode, errorText } from '../config/texts';
 import { notifyOwner, sendBookingConfirmation } from '../lib/email';
-import { normalizePhone } from '../lib/format';
+import { formatPhone, normalizePhone } from '../lib/format';
 import { rateLimited } from '../lib/rate-limit';
+import { sendBookingSms } from '../lib/sms';
 import { serviceClient } from '../lib/supabase';
 
 function fail(code: string, status: 'BAD_REQUEST' | 'CONFLICT' | 'TOO_MANY_REQUESTS' | 'NOT_FOUND' | 'INTERNAL_SERVER_ERROR' = 'BAD_REQUEST'): never {
@@ -79,8 +80,13 @@ export const createBooking = defineAction({
       comment: input.comment || null,
       cancelUrl,
     };
-    // E-mail is optional and must never break a successful booking.
-    const [confirmation] = await Promise.all([sendBookingConfirmation(mail), notifyOwner(mail, 'new')]);
+    // E-mail and SMS are optional and must never break a successful booking.
+    const wantSms = business.sms.confirmations === 'always' || !input.email;
+    const [confirmation, sms] = await Promise.all([
+      sendBookingConfirmation(mail),
+      wantSms ? sendBookingSms('confirmation', { phone, startsAt, cancelUrl }) : Promise.resolve({ sent: false as const }),
+      notifyOwner(mail, 'new'),
+    ]);
 
     return {
       id: row.id,
@@ -90,6 +96,9 @@ export const createBooking = defineAction({
       endsAt: row.ends_at,
       emailSent: confirmation.sent,
       email: input.email || null,
+      smsSent: sms.sent,
+      phone: formatPhone(phone),
+      cancelUrl,
       location: `${business.contact.address.street}, ${business.contact.address.city}`,
     };
   },

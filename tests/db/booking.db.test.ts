@@ -67,7 +67,7 @@ describe('create_booking: basic rules', () => {
   });
 
   it('rejects bookings on a closed day', async () => {
-    const day = addDays(fx.date, 1);
+    const day = fx.day(1);
     await db.query(`insert into closed_days (day, reason) values ($1, 'TEST')`, [day]);
     try {
       await expectDbError(
@@ -137,7 +137,7 @@ describe('create_booking: basic rules', () => {
   });
 
   it('limits active future bookings per phone number', async () => {
-    const day = addDays(fx.date, 2);
+    const day = fx.day(2);
     const p = phone();
     for (const t of ['09:00', '10:00', '11:00']) {
       await createBooking(db, { serviceId: fx.serviceId, masterId: fx.masterA, startsAt: fx.at(t, day), phone: p });
@@ -151,7 +151,7 @@ describe('create_booking: basic rules', () => {
 
 describe('create_booking: "any available master"', () => {
   it('assigns different masters to the same time until all are taken', async () => {
-    const day = addDays(fx.date, 3);
+    const day = fx.day(3);
     const first = await createBooking(db, { serviceId: fx.serviceId, masterId: null, startsAt: fx.at('11:00', day) });
     const second = await createBooking(db, { serviceId: fx.serviceId, masterId: null, startsAt: fx.at('11:00', day) });
     expect(new Set([first.master_id, second.master_id])).toEqual(new Set([fx.masterA, fx.masterB]));
@@ -162,7 +162,7 @@ describe('create_booking: "any available master"', () => {
   });
 
   it('prefers the master with fewer bookings that day', async () => {
-    const day = addDays(fx.date, 4);
+    const day = fx.day(4);
     await createBooking(db, { serviceId: fx.serviceId, masterId: fx.masterA, startsAt: fx.at('09:00', day) });
     const b = await createBooking(db, { serviceId: fx.serviceId, masterId: null, startsAt: fx.at('15:00', day) });
     expect(b.master_id).toBe(fx.masterB);
@@ -171,7 +171,7 @@ describe('create_booking: "any available master"', () => {
 
 describe('cancellation frees the slot', () => {
   it('a cancelled booking no longer blocks the time', async () => {
-    const day = addDays(fx.date, 5);
+    const day = fx.day(5);
     const b = await createBooking(db, { serviceId: fx.serviceId, masterId: fx.masterA, startsAt: fx.at('10:00', day) });
     await db.query(`update bookings set status = 'cancelled' where id = $1`, [b.id]);
     const again = await createBooking(db, { serviceId: fx.serviceId, masterId: fx.masterA, startsAt: fx.at('10:00', day) });
@@ -181,7 +181,7 @@ describe('cancellation frees the slot', () => {
   });
 
   it('re-activating a cancelled booking over a taken slot is refused by the constraint', async () => {
-    const day = addDays(fx.date, 5);
+    const day = fx.day(5);
     const cancelled = await db.query(
       `select id from bookings where master_id = $1 and status = 'cancelled' and starts_at = $2`,
       [fx.masterA, fx.at('10:00', day)],
@@ -195,7 +195,7 @@ describe('cancellation frees the slot', () => {
 
 describe('cancel_booking_by_token', () => {
   it('cancels via the secret token and refuses a second time', async () => {
-    const day = addDays(fx.date, 6);
+    const day = fx.day(6);
     const b = await createBooking(db, { serviceId: fx.serviceId, masterId: fx.masterB, startsAt: fx.at('09:00', day) });
     const info = await db.query(`select * from get_booking_by_token($1)`, [b.cancel_token]);
     expect(info.rows[0].can_cancel).toBe(true);
@@ -205,7 +205,7 @@ describe('cancel_booking_by_token', () => {
   });
 
   it('refuses to cancel later than settings.cancel_hours before the start', async () => {
-    const day = addDays(fx.date, 6);
+    const day = fx.day(6);
     const b = await createBooking(db, { serviceId: fx.serviceId, masterId: fx.masterB, startsAt: fx.at('12:00', day) });
     await db.query(`update settings set cancel_hours = 720`); // 30 days
     try {
@@ -218,7 +218,7 @@ describe('cancel_booking_by_token', () => {
 
 describe('buffer between bookings', () => {
   it('keeps settings.buffer_min free after each booking', async () => {
-    const day = addDays(fx.date, 7);
+    const day = fx.day(7);
     await db.query(`update settings set buffer_min = 15`);
     try {
       await createBooking(db, { serviceId: fx.serviceId, masterId: fx.masterA, startsAt: fx.at('10:00', day) });
@@ -240,7 +240,7 @@ describe('buffer between bookings', () => {
 
 describe('database constraint (also protects admin edits)', () => {
   it('a direct insert that overlaps is rejected by bookings_no_overlap', async () => {
-    const day = addDays(fx.date, 8);
+    const day = fx.day(8);
     await createBooking(db, { serviceId: fx.serviceId, masterId: fx.masterA, startsAt: fx.at('13:00', day) });
     await expectDbError(
       db.query(
@@ -253,7 +253,7 @@ describe('database constraint (also protects admin edits)', () => {
   });
 
   it('rescheduling onto a taken time is rejected', async () => {
-    const day = addDays(fx.date, 8);
+    const day = fx.day(8);
     const b = await createBooking(db, { serviceId: fx.serviceId, masterId: fx.masterA, startsAt: fx.at('15:00', day) });
     await expectDbError(
       db.query(`update bookings set starts_at = $2, ends_at = $3 where id = $1`, [

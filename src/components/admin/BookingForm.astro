@@ -116,8 +116,8 @@ const offered = JSON.stringify(masterServices.map((x) => [x.master_id, x.service
     <label class="flex items-start gap-3 text-sm">
       <input type="checkbox" name="notify" class="mt-0.5 size-5 accent-brand" />
       <span>
-        {v.id ? 'Nosūtīt klientam e-pastu, ja mainās laiks vai meistars' : 'Nosūtīt klientam apstiprinājumu e-pastā'}
-        <span class="block text-muted">Tikai ja norādīts e-pasts un ir iestatīts Brevo.</span>
+        {v.id ? 'Paziņot klientam, ja mainās laiks vai meistars' : 'Nosūtīt klientam apstiprinājumu'}
+        <span class="block text-muted">E-pastā (ja norādīts) un SMS (ja ieslēgts) – tikai ja ir iestatīts Brevo.</span>
       </span>
     </label>
   </div>

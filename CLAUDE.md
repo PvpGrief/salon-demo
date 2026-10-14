@@ -13,7 +13,7 @@ Storage). The default host is Cloudflare Workers; Netlify and Node also work
 
 ## Hard rules
 
-1. **All visitor-facing and admin text is Latvian (lv)**, with correct diacritics (ā č ē ģ ī ķ ļ ņ š ū ž). Code comments and docs are English.
+1. **All visitor-facing and admin text is Latvian (lv)**, with correct diacritics (ā č ē ģ ī ķ ļ ņ š ū ž). Code comments and docs are English. Exception: SMS are converted to plain letters when `business.sms.plainLetters` is true, to keep them to one SMS each.
 2. **Time zone is always Europe/Riga.** Store instants as `timestamptz` (UTC). Show dates as `dd.mm.yyyy` and times as 24h `HH:mm`. Use the helpers in `src/lib/time.ts`; never format dates by hand and never use the server's local time.
 3. **Do not change the booking / availability logic unless the user explicitly asks.** Protected files:
    - `src/lib/booking/slots.ts`, `src/lib/booking/availability.ts`
@@ -34,7 +34,7 @@ Storage). The default host is Cloudflare Workers; Netlify and Node also work
 
 | What | Where |
 |---|---|
-| Business name, contacts, opening hours (display), colors, hero/section texts, gallery, reviews, SEO, privacy-policy details, e-mail sender | `src/config/business.ts` |
+| Business name, contacts, opening hours (display), colors, hero/section texts, gallery, reviews, SEO, privacy-policy details, e-mail sender, SMS settings | `src/config/business.ts` |
 | Generic UI texts (buttons, labels, errors) | `src/config/texts.ts` |
 | Services, prices, masters, master photos, working hours, closed days, blocks, booking rules | Database, edited in `/admin` |
 | Demo data | `supabase/seed.sql` |
@@ -56,6 +56,7 @@ src/actions/admin.ts               all admin mutations (each checks admin + RLS)
 src/lib/booking/slots.ts           pure slot calculation  ⚠ protected
 src/lib/time.ts                    Riga time helpers
 src/lib/email.ts                   Brevo e-mails (optional; skipped if no key)
+src/lib/sms.ts, sms-text.ts        Brevo SMS (optional; texts in config/texts.ts → sms)
 supabase/migrations/               schema, functions, RLS, storage  ⚠ add new files only
 ```
 

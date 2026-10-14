@@ -54,10 +54,13 @@ static sections.
 - [ ] Put the project's `SUPABASE_URL`, `SUPABASE_ANON_KEY` and `SUPABASE_SERVICE_ROLE_KEY` in `.env`.
 - [ ] `npm run create-admin -- <owner e-mail>` and send the printed password to the owner securely.
 
-## 5. E-mail (optional)
+## 5. E-mail and SMS (optional, Brevo)
 
-- [ ] Brevo account: verify the client's domain or sender address and create an API key.
-- [ ] Set `BREVO_API_KEY` in the hosting environment, and `email.fromAddress` to the verified sender.
+- [ ] Brevo account: verify the client's domain or sender address, and create an API key.
+- [ ] Set `BREVO_API_KEY` in the hosting environment (Cloudflare: Settings → Variables and Secrets, type Secret).
+- [ ] `business.ts → email`: `fromAddress` (the verified sender) and `ownerNotifyTo`.
+- [ ] SMS: buy SMS credits in Brevo, then in `business.ts → sms` set `enabled`, `sender` (up to 11 letters/digits) and `confirmations` (`'always'` or `'if-no-email'`).
+- [ ] Make a test booking with your own mobile number and e-mail.
 
 ## 6. Deploy (Cloudflare Workers)
 
