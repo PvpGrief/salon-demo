@@ -7,9 +7,7 @@ import { z } from 'astro/zod';
 import { business } from '../config/business';
 import { errorCode, errorText } from '../config/texts';
 import { notifyOwner, sendBookingConfirmation } from '../lib/email';
-import { formatPhone, normalizePhone } from '../lib/format';
 import { rateLimited } from '../lib/rate-limit';
-import { sendBookingSms } from '../lib/sms';
 import { serviceClient } from '../lib/supabase';
 
 function fail(code: string, status: 'BAD_REQUEST' | 'CONFLICT' | 'TOO_MANY_REQUESTS' | 'NOT_FOUND' | 'INTERNAL_SERVER_ERROR' = 'BAD_REQUEST'): never {
@@ -22,8 +20,7 @@ export const createBooking = defineAction({
     masterId: z.uuid().nullable(),
     startsAt: z.iso.datetime({ offset: true }),
     name: z.string().trim().min(2).max(100),
-    phone: z.string().trim().min(7).max(30),
-    email: z.union([z.literal(''), z.email().max(254)]).optional(),
+    email: z.email().max(254),
     comment: z.string().trim().max(1000).optional(),
     /** Honeypot – real visitors never fill it. */
     website: z.string().optional(),
@@ -32,17 +29,14 @@ export const createBooking = defineAction({
     if (input.website) fail('invalid_input');
     if (rateLimited(`book:${context.clientAddress}`, 8, 10 * 60_000)) fail('rate_limited', 'TOO_MANY_REQUESTS');
 
-    const phone = normalizePhone(input.phone);
-    if (!phone) fail('invalid_input');
-
     const supabase = serviceClient();
     const { data, error } = await supabase.rpc('create_booking', {
       p_service_id: input.serviceId,
       p_master_id: input.masterId,
       p_starts_at: input.startsAt,
       p_name: input.name,
-      p_phone: phone,
-      p_email: input.email || null,
+      p_phone: null,
+      p_email: input.email,
       p_comment: input.comment || null,
     });
 
@@ -71,8 +65,7 @@ export const createBooking = defineAction({
 
     const mail = {
       customerName: input.name,
-      customerEmail: input.email || null,
-      customerPhone: phone,
+      customerEmail: input.email,
       serviceName,
       masterName,
       startsAt,
@@ -80,13 +73,8 @@ export const createBooking = defineAction({
       comment: input.comment || null,
       cancelUrl,
     };
-    // E-mail and SMS are optional and must never break a successful booking.
-    const wantSms = business.sms.confirmations === 'always' || !input.email;
-    const [confirmation, sms] = await Promise.all([
-      sendBookingConfirmation(mail),
-      wantSms ? sendBookingSms('confirmation', { phone, startsAt, cancelUrl }) : Promise.resolve({ sent: false as const }),
-      notifyOwner(mail, 'new'),
-    ]);
+    // E-mail is optional (no provider key = skipped) and must never break a successful booking.
+    const [confirmation] = await Promise.all([sendBookingConfirmation(mail), notifyOwner(mail, 'new')]);
 
     return {
       id: row.id,
@@ -95,9 +83,7 @@ export const createBooking = defineAction({
       startsAt: row.starts_at,
       endsAt: row.ends_at,
       emailSent: confirmation.sent,
-      email: input.email || null,
-      smsSent: sms.sent,
-      phone: formatPhone(phone),
+      email: input.email,
       cancelUrl,
       location: `${business.contact.address.street}, ${business.contact.address.city}`,
     };

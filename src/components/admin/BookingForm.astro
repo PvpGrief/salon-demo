@@ -99,15 +99,16 @@ const offered = JSON.stringify(masterServices.map((x) => [x.master_id, x.service
         {fe('name') && <p class="error-text">{fe('name')}</p>}
       </div>
       <div>
-        <label class="label" for="phone">Tālrunis</label>
-        <input id="phone" name="phone" type="tel" class="input" required maxlength="30" autocomplete="off" value={v.phone} />
-        {fe('phone') && <p class="error-text">{fe('phone')}</p>}
+        <label class="label" for="email">E-pasts</label>
+        <input id="email" name="email" type="email" class="input" maxlength="254" autocomplete="off" value={v.email} />
+        {fe('email') && <p class="error-text">{fe('email')}</p>}
       </div>
     </div>
     <div>
-      <label class="label" for="email">E-pasts (neobligāti)</label>
-      <input id="email" name="email" type="email" class="input" maxlength="254" autocomplete="off" value={v.email} />
-      {fe('email') && <p class="error-text">{fe('email')}</p>}
+      <label class="label" for="phone">Tālrunis (neobligāti)</label>
+      <input id="phone" name="phone" type="tel" class="input" maxlength="30" autocomplete="off" value={v.phone} />
+      <p class="hint">Jānorāda e-pasts vai tālrunis (piem., pierakstam pa tālruni).</p>
+      {fe('phone') && <p class="error-text">{fe('phone')}</p>}
     </div>
     <div>
       <label class="label" for="comment">Komentārs</label>
@@ -117,7 +118,7 @@ const offered = JSON.stringify(masterServices.map((x) => [x.master_id, x.service
       <input type="checkbox" name="notify" class="mt-0.5 size-5 accent-brand" />
       <span>
         {v.id ? 'Paziņot klientam, ja mainās laiks vai meistars' : 'Nosūtīt klientam apstiprinājumu'}
-        <span class="block text-muted">E-pastā (ja norādīts) un SMS (ja ieslēgts) – tikai ja ir iestatīts Brevo.</span>
+        <span class="block text-muted">E-pastā – ja klientam ir e-pasts un ir iestatīts e-pasta pakalpojums (Resend vai Brevo).</span>
       </span>
     </label>
   </div>

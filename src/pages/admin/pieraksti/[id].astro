@@ -3,8 +3,6 @@ import { actions, isInputError } from 'astro:actions';
 import Admin from '../../../layouts/Admin.astro';
 import BookingForm from '../../../components/admin/BookingForm.astro';
 import { formatPhone, telHref } from '../../../lib/format';
-import { smsEnabled } from '../../../lib/sms';
-import { isSmsCapable } from '../../../lib/sms-text';
 import { formatDateTime, formatDateWithWeekday, toRigaDate, toRigaTime } from '../../../lib/time';
 
 const id = Astro.params.id!;
@@ -43,7 +41,7 @@ const values = {
   time: posted.time ?? toRigaTime(start),
   durationMin: posted.durationMin ?? Math.round((end.getTime() - start.getTime()) / 60_000),
   name: posted.name ?? b.customer_name,
-  phone: posted.phone ?? b.customer_phone,
+  phone: posted.phone ?? b.customer_phone ?? '',
   email: posted.email ?? b.customer_email ?? '',
   comment: posted.comment ?? b.comment ?? '',
 };
@@ -63,8 +61,13 @@ const statusError = status?.error?.message ?? del?.error?.message;
         {formatDateWithWeekday(toRigaDate(start))}, {toRigaTime(start)}–{toRigaTime(end)}
       </p>
     </div>
-    <div class="flex gap-2">
-      <a class="btn-outline !min-h-10 !px-4 text-sm" href={telHref(b.customer_phone)}>Zvanīt {formatPhone(b.customer_phone)}</a>
+    <div class="flex flex-wrap gap-2">
+      {b.customer_phone && b.customer_phone !== '0000000' && (
+        <a class="btn-outline !min-h-10 !px-4 text-sm" href={telHref(b.customer_phone)}>Zvanīt {formatPhone(b.customer_phone)}</a>
+      )}
+      {b.customer_email && (
+        <a class="btn-outline !min-h-10 !px-4 text-sm" href={`mailto:${b.customer_email}`}>Rakstīt e-pastu</a>
+      )}
     </div>
   </div>
 
@@ -94,13 +97,10 @@ const statusError = status?.error?.message ?? del?.error?.message;
         <form method="POST" action={actions.admin.setBookingStatus} data-confirm="Atcelt šo pierakstu?">
           <input type="hidden" name="id" value={b.id} />
           <input type="hidden" name="status" value="cancelled" />
-          {(b.customer_email || (smsEnabled() && isSmsCapable(b.customer_phone))) && (
+          {b.customer_email && (
             <label class="mb-3 flex items-center gap-3 text-sm">
               <input type="checkbox" name="notify" class="size-5 accent-brand" checked />
-              Paziņot klientam
-              {[b.customer_email && `e-pastā (${b.customer_email})`, smsEnabled() && isSmsCapable(b.customer_phone) && 'ar SMS']
-                .filter(Boolean)
-                .join(' un ')}
+              Paziņot klientam e-pastā ({b.customer_email})
             </label>
           )}
           <button class="btn bg-red-700 text-white hover:bg-red-800">Atcelt pierakstu</button>

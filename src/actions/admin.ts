@@ -7,7 +7,6 @@ import { ActionError, defineAction, type ActionAPIContext } from 'astro:actions'
 import { z } from 'astro/zod';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { sendBookingChanged, sendBookingConfirmation } from '../lib/email';
-import { sendBookingSms } from '../lib/sms';
 import { normalizePhone } from '../lib/format';
 import { authClient } from '../lib/supabase';
 import { addDays, isDateString, isTimeString, rigaToUtc, timeToMinutes } from '../lib/time';
@@ -100,7 +99,7 @@ const bookingInput = z.object({
   time: timeStr,
   durationMin: z.number().int().min(5).max(600).optional(),
   name: z.string().trim().min(2, 'Ievadiet vārdu').max(100),
-  phone: z.string().trim().min(7, 'Ievadiet tālruni').max(30),
+  phone: z.string().trim().max(30).optional(),
   email: z.union([z.literal(''), z.email('Nederīgs e-pasts').max(254)]).optional(),
   comment: text(1000),
   notify: z.boolean().optional(),
@@ -111,8 +110,10 @@ const saveBooking = defineAction({
   input: bookingInput,
   handler: async (input, context) => {
     const supabase = await requireAdmin(context);
-    const phone = normalizePhone(input.phone);
-    if (!phone) fail('Nederīgs tālruņa numurs.');
+    // Phone bookings may have only a phone, online-style ones only an e-mail.
+    const phone = input.phone ? normalizePhone(input.phone) : null;
+    if (input.phone && !phone) fail('Nederīgs tālruņa numurs.');
+    if (!phone && !input.email) fail('Norādiet klienta e-pastu vai tālruni.');
 
     const { data: svc } = await supabase.from('services').select('name, duration_min').eq('id', input.serviceId).single();
     if (!svc) fail('Pakalpojums nav atrasts.');
@@ -137,7 +138,7 @@ const saveBooking = defineAction({
       // blocked_until (end + buffer) is set by the database trigger
       customer_name: input.name,
       customer_phone: phone,
-      customer_email: input.email || null,
+      customer_email: input.email ? input.email.toLowerCase() : null,
       comment: input.comment || null,
     };
 
@@ -158,12 +159,9 @@ const saveBooking = defineAction({
         cancelUrl,
       };
       const moved = previous && (new Date(previous.starts_at).getTime() !== startsAt.getTime() || previous.master_id !== input.masterId);
-      // E-mail (if given) and SMS (if enabled); both skip silently when not configured.
-      if (!input.id) {
-        await Promise.all([sendBookingConfirmation(mail), sendBookingSms('confirmation', { phone, startsAt, cancelUrl })]);
-      } else if (moved) {
-        await Promise.all([sendBookingChanged(mail, 'rescheduled'), sendBookingSms('rescheduled', { phone, startsAt, cancelUrl })]);
-      }
+      // Skipped silently when the customer has no e-mail or no provider is configured.
+      if (!input.id) await sendBookingConfirmation(mail);
+      else if (moved) await sendBookingChanged(mail, 'rescheduled');
     }
     return { id: res.data.id as string, created: !input.id };
   },
@@ -184,19 +182,16 @@ const setBookingStatus = defineAction({
     if (status === 'cancelled' && notify) {
       const rel = data as unknown as { services: { name: string }; masters: { name: string } };
       const startsAt = new Date(data.starts_at);
-      await Promise.all([
-        sendBookingChanged(
-          {
-            customerName: data.customer_name,
-            customerEmail: data.customer_email,
-            serviceName: rel.services?.name ?? '',
-            masterName: rel.masters?.name ?? '',
-            startsAt,
-          },
-          'cancelled',
-        ),
-        sendBookingSms('cancelled', { phone: data.customer_phone, startsAt }),
-      ]);
+      await sendBookingChanged(
+        {
+          customerName: data.customer_name,
+          customerEmail: data.customer_email,
+          serviceName: rel.services?.name ?? '',
+          masterName: rel.masters?.name ?? '',
+          startsAt,
+        },
+        'cancelled',
+      );
     }
     return { status };
   },

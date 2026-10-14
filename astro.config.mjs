@@ -36,6 +36,9 @@ export default defineConfig({
       SUPABASE_URL: envField.string({ context: 'server', access: 'secret', optional: true }),
       SUPABASE_ANON_KEY: envField.string({ context: 'server', access: 'secret', optional: true }),
       SUPABASE_SERVICE_ROLE_KEY: envField.string({ context: 'server', access: 'secret', optional: true }),
+      // E-mail (optional): resend | brevo. Unset = whichever key is present.
+      EMAIL_PROVIDER: envField.string({ context: 'server', access: 'secret', optional: true }),
+      RESEND_API_KEY: envField.string({ context: 'server', access: 'secret', optional: true }),
       BREVO_API_KEY: envField.string({ context: 'server', access: 'secret', optional: true }),
     },
     validateSecrets: false,

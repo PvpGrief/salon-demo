@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type pg from 'pg';
 import { addDays, todayRiga, rigaToUtc } from '../../src/lib/time';
-import { connect, createBooking, createFixture, expectDbError, phone, type Fixture } from './helpers';
+import { connect, createBooking, createFixture, email, expectDbError, type Fixture } from './helpers';
 
 let db: pg.Client;
 let fx: Fixture;
@@ -125,26 +125,57 @@ describe('create_booking: basic rules', () => {
     );
   });
 
-  it('normalizes the phone number', async () => {
+  it('requires an e-mail for online bookings', async () => {
+    await expectDbError(
+      createBooking(db, { serviceId: fx.serviceId, masterId: fx.masterA, startsAt: fx.at('15:00'), email: null }),
+      'invalid_input',
+    );
+    await expectDbError(
+      createBooking(db, { serviceId: fx.serviceId, masterId: fx.masterA, startsAt: fx.at('15:00'), email: '  ' }),
+      'invalid_input',
+    );
+  });
+
+  it('accepts a booking without a phone number', async () => {
+    const b = await createBooking(db, { serviceId: fx.serviceId, masterId: fx.masterA, startsAt: fx.at('15:00') });
+    const row = await db.query(`select customer_phone, customer_email from bookings where id = $1`, [b.id]);
+    expect(row.rows[0].customer_phone).toBeNull();
+    expect(row.rows[0].customer_email).toMatch(/@test\.lv$/);
+  });
+
+  it('stores the e-mail in lower case and normalizes an optional phone', async () => {
     const b = await createBooking(db, {
       serviceId: fx.serviceId,
       masterId: fx.masterA,
       startsAt: fx.at('16:00'),
       phone: '+371 2 999-88 77',
+      email: '  Ilze.Kalnina@Example.LV ',
     });
-    const row = await db.query(`select customer_phone from bookings where id = $1`, [b.id]);
+    const row = await db.query(`select customer_phone, customer_email from bookings where id = $1`, [b.id]);
     expect(row.rows[0].customer_phone).toBe('+37129998877');
+    expect(row.rows[0].customer_email).toBe('ilze.kalnina@example.lv');
   });
 
-  it('limits active future bookings per phone number', async () => {
+  it('limits active future bookings per e-mail (case-insensitive)', async () => {
     const day = fx.day(2);
-    const p = phone();
+    const e = email();
     for (const t of ['09:00', '10:00', '11:00']) {
-      await createBooking(db, { serviceId: fx.serviceId, masterId: fx.masterA, startsAt: fx.at(t, day), phone: p });
+      await createBooking(db, { serviceId: fx.serviceId, masterId: fx.masterA, startsAt: fx.at(t, day), email: e });
     }
     await expectDbError(
-      createBooking(db, { serviceId: fx.serviceId, masterId: fx.masterA, startsAt: fx.at('12:00', day), phone: p }),
+      createBooking(db, { serviceId: fx.serviceId, masterId: fx.masterA, startsAt: fx.at('12:00', day), email: e.toUpperCase() }),
       'too_many_bookings',
+    );
+  });
+
+  it('every booking needs some contact (e-mail or phone)', async () => {
+    await expectDbError(
+      db.query(
+        `insert into bookings (service_id, master_id, starts_at, ends_at, blocked_until, customer_name, source)
+         values ($1, $2, $3, $4, $4, 'Bez kontaktiem', 'admin')`,
+        [fx.serviceId, fx.masterB, fx.at('17:00', fx.day(9)), fx.at('17:30', fx.day(9))],
+      ),
+      'bookings_contact_required',
     );
   });
 });
@@ -263,5 +294,19 @@ describe('database constraint (also protects admin edits)', () => {
       ]),
       'bookings_no_overlap',
     );
+  });
+});
+
+describe('GDPR clean-up', () => {
+  it('anonymizes old bookings that have only an e-mail', async () => {
+    const old = new Date(Date.now() - 1000 * 86_400_000); // ~33 months ago
+    const ins = await db.query(
+      `insert into bookings (service_id, master_id, starts_at, ends_at, blocked_until, customer_name, customer_email, source)
+       values ($1, $2, $3, $4, $4, 'Veca Kliente', 'veca@example.lv', 'online') returning id`,
+      [fx.serviceId, fx.masterA, old, new Date(old.getTime() + 3_600_000)],
+    );
+    await db.query(`select anonymize_old_bookings()`);
+    const row = await db.query(`select customer_name, customer_email, customer_phone from bookings where id = $1`, [ins.rows[0].id]);
+    expect(row.rows[0]).toEqual({ customer_name: 'Dzēsts klients', customer_email: null, customer_phone: '0000000' });
   });
 });

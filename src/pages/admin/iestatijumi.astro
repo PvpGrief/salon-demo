@@ -2,8 +2,7 @@
 import { actions, isInputError } from 'astro:actions';
 import Admin from '../../layouts/Admin.astro';
 import { business } from '../../config/business';
-import { emailEnabled } from '../../lib/email';
-import { smsEnabled } from '../../lib/sms';
+import { emailStatus } from '../../lib/email';
 
 const save = Astro.getActionResult(actions.admin.saveSettings);
 const pw = Astro.getActionResult(actions.admin.changePassword);
@@ -14,6 +13,8 @@ if (anon && !anon.error) return Astro.redirect('/admin/iestatijumi?ok=anonimizet
 
 const supabase = Astro.locals.supabase!;
 const { data: s } = await supabase.from('settings').select('*').eq('id', 1).single();
+const mail = emailStatus();
+const providerName = { resend: 'Resend', brevo: 'Brevo' } as const;
 const errOf = (r: typeof save | typeof pw) =>
   r?.error ? (isInputError(r.error) ? Object.values(r.error.fields).flat()[0] ?? 'Pārbaudiet laukus.' : r.error.message) : null;
 
@@ -23,7 +24,7 @@ const fields = [
   { name: 'minNoticeMin', label: 'Minimālais laiks līdz vizītei (min)', hint: '120 = tiešsaistē nevar pierakstīties tuvāk par 2 stundām.', value: s?.min_notice_min, min: 0, max: 10080 },
   { name: 'maxDaysAhead', label: 'Cik dienas uz priekšu var pierakstīties', hint: '', value: s?.max_days_ahead, min: 1, max: 365 },
   { name: 'cancelHours', label: 'Klients var atcelt ne vēlāk kā (h pirms vizītes)', hint: 'Atcelšana ar saiti e-pastā.', value: s?.cancel_hours, min: 0, max: 720 },
-  { name: 'maxActivePerPhone', label: 'Maks. aktīvo pierakstu uz vienu tālruni', hint: 'Aizsardzība pret ļaunprātīgiem pierakstiem.', value: s?.max_active_per_phone, min: 1, max: 50 },
+  { name: 'maxActivePerPhone', label: 'Maks. aktīvo pierakstu uz vienu e-pastu', hint: 'Aizsardzība pret ļaunprātīgiem tiešsaistes pierakstiem.', value: s?.max_active_per_phone, min: 1, max: 50 },
   { name: 'retentionMonths', label: 'Klientu datu glabāšana (mēneši)', hint: 'Pēc tam vārds, tālrunis un e-pasts tiek dzēsti (VDAR).', value: s?.retention_months, min: 1, max: 120 },
 ];
 ---
@@ -53,9 +54,9 @@ const fields = [
       <section class="card p-4 sm:p-5">
         <h2 class="text-lg font-semibold">E-pasti</h2>
         {
-          emailEnabled() ? (
+          mail.provider ? (
             <p class="mt-2 text-sm">
-              ✅ Ieslēgti (Brevo). Sūtītājs: {business.email.fromAddress}
+              ✅ Ieslēgti ({providerName[mail.provider]}). Sūtītājs: {mail.fromAddress}
               {business.email.ownerNotifyTo && (
                 <>
                   <br />
@@ -65,24 +66,14 @@ const fields = [
             </p>
           ) : (
             <p class="mt-2 text-sm text-muted">
-              Izslēgti. Lai klienti saņemtu apstiprinājumus, iestatiet <code>BREVO_API_KEY</code> (sk. README).
-            </p>
-          )
-        }
-      </section>
-
-      <section class="card p-4 sm:p-5">
-        <h2 class="text-lg font-semibold">SMS</h2>
-        {
-          smsEnabled() ? (
-            <p class="mt-2 text-sm">
-              ✅ Ieslēgtas (Brevo). Sūtītājs: {business.sms.sender}.{' '}
-              {business.sms.confirmations === 'always' ? 'Apstiprinājums katram pierakstam.' : 'Apstiprinājums, ja klients nenorāda e-pastu.'}
-              <span class="mt-1 block text-muted">SMS tiek sūtītas tikai, ja Brevo kontā ir SMS kredīts.</span>
-            </p>
-          ) : (
-            <p class="mt-2 text-sm text-muted">
-              Izslēgtas. Nepieciešams <code>BREVO_API_KEY</code>, SMS kredīts Brevo kontā un <code>sms.enabled</code> failā <code>business.ts</code>.
+              Izslēgti – klienti apstiprinājumu redz tikai ekrānā.
+              {mail.problem ? (
+                <span class="mt-1 block text-red-700">Iemesls: {mail.problem}</span>
+              ) : (
+                <span class="mt-1 block">
+                  Iestatiet <code>EMAIL_PROVIDER</code> (resend vai brevo) un <code>RESEND_API_KEY</code> vai <code>BREVO_API_KEY</code> (sk. README).
+                </span>
+              )}
             </p>
           )
         }

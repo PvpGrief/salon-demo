@@ -53,10 +53,8 @@ export const t = {
     next: 'Turpināt',
     yourDetails: 'Jūsu kontaktinformācija',
     name: 'Vārds, uzvārds',
-    phone: 'Tālrunis',
-    phoneHint: 'Piemēram, +371 20 000 000',
-    email: 'E-pasts (neobligāti)',
-    emailHint: 'Nosūtīsim apstiprinājumu un atcelšanas saiti',
+    email: 'E-pasts',
+    emailHint: 'Uz šo adresi nosūtīsim apstiprinājumu un atcelšanas saiti',
     comment: 'Komentārs (neobligāti)',
     commentHint: 'Piemēram, vēlamais matu garums vai alerģijas',
     summary: 'Jūsu pieraksts',
@@ -71,14 +69,12 @@ export const t = {
     privacyLink: 'privātuma politiku',
     successTitle: 'Paldies! Jūs esat pierakstīts.',
     successEmail: 'Apstiprinājums nosūtīts uz',
-    successSms: 'Īsziņa ar apstiprinājumu un atcelšanas saiti nosūtīta uz',
     cancelHere: 'Ja nevarēsiet ierasties, atceliet pierakstu šeit',
     successNoEmail: 'Saglabājiet šo informāciju vai uzņemiet ekrānuzņēmumu.',
     addToCalendar: 'Pievienot kalendāram',
     newBooking: 'Veikt vēl vienu pierakstu',
     home: 'Uz sākumlapu',
     required: 'Obligāti aizpildāms lauks',
-    invalidPhone: 'Lūdzu, ievadiet derīgu tālruņa numuru',
     invalidEmail: 'Lūdzu, ievadiet derīgu e-pasta adresi',
   },
   availability: {
@@ -115,16 +111,6 @@ export const t = {
     rights: 'Visas tiesības aizsargātas.',
     admin: 'Administrācija',
   },
-  /**
-   * SMS texts. Placeholders: {name} salon short name, {date} dd.mm.yyyy,
-   * {time} HH:mm, {link} cancel link, {phone} salon phone.
-   * Keep them short: one SMS = 160 plain characters (link is ~70).
-   */
-  sms: {
-    confirmation: '{name}: pieraksts {date} plkst. {time} apstiprināts. Atcelt: {link}',
-    rescheduled: '{name}: jūsu pieraksts pārcelts uz {date} plkst. {time}. Atcelt: {link}',
-    cancelled: '{name}: jūsu pieraksts {date} plkst. {time} ir atcelts. Tālr. {phone}',
-  },
   errors: {
     service_not_found: 'Izvēlētais pakalpojums vairs nav pieejams. Lūdzu, izvēlieties citu.',
     master_not_found: 'Izvēlētais meistars šo pakalpojumu nesniedz. Lūdzu, izvēlieties citu meistaru.',
@@ -132,7 +118,7 @@ export const t = {
     too_soon: 'Šis laiks ir pārāk tuvu. Lūdzu, izvēlieties vēlāku laiku.',
     too_far: 'Tik tālu uz priekšu pierakstīties vēl nevar. Lūdzu, izvēlieties tuvāku datumu.',
     too_many_bookings:
-      'Ar šo tālruņa numuru jau ir vairāki aktīvi pieraksti. Lūdzu, sazinieties ar mums pa tālruni.',
+      'Ar šo e-pasta adresi jau ir vairāki aktīvi pieraksti. Lūdzu, sazinieties ar mums pa tālruni.',
     slot_unavailable: 'Diemžēl šis laiks tikko tika aizņemts. Lūdzu, izvēlieties citu laiku.',
     booking_not_found: 'Pieraksts nav atrasts vai jau ir atcelts.',
     cancel_too_late: 'Pierakstu vairs nevar atcelt tiešsaistē. Lūdzu, zvaniet mums.',

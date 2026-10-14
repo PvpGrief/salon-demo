@@ -39,7 +39,7 @@ const [mastersRes, servicesRes, closedRes] = await Promise.all([
 
 let bq = supabase
   .from('bookings')
-  .select('id, starts_at, ends_at, status, customer_name, customer_phone, comment, source, service_id, master_id')
+  .select('id, starts_at, ends_at, status, customer_name, customer_phone, customer_email, comment, source, service_id, master_id')
   .gte('starts_at', fromTs)
   .lt('starts_at', toTs)
   .order('starts_at');
@@ -200,9 +200,20 @@ const total = bookings.filter((b) => b.status === 'confirmed').length;
                         {b.comment && <p class="mt-0.5 truncate text-sm text-ink/70">„{b.comment}”</p>}
                       </div>
                       <div class="flex shrink-0 flex-col items-end gap-1">
-                        <a href={telHref(b.customer_phone)} class="relative z-10 rounded-lg px-2 py-1 text-sm font-medium text-brand hover:bg-brand-soft">
-                          {formatPhone(b.customer_phone)}
-                        </a>
+                        {b.customer_phone && b.customer_phone !== '0000000' ? (
+                          <a href={telHref(b.customer_phone)} class="relative z-10 rounded-lg px-2 py-1 text-sm font-medium text-brand hover:bg-brand-soft">
+                            {formatPhone(b.customer_phone)}
+                          </a>
+                        ) : (
+                          b.customer_email && (
+                            <a
+                              href={`mailto:${b.customer_email}`}
+                              class="relative z-10 max-w-36 truncate rounded-lg px-2 py-1 text-sm font-medium text-brand hover:bg-brand-soft sm:max-w-56"
+                            >
+                              {b.customer_email}
+                            </a>
+                          )
+                        )}
                         {cancelled ? (
                           <span class="rounded-full bg-red-50 px-2 py-0.5 text-xs font-medium text-red-700">Atcelts</span>
                         ) : (

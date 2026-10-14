@@ -133,8 +133,9 @@ begin
                                    customer_name, customer_phone, customer_email, comment, source)
       values (v_plan.service_id, v_plan.master_id, v_start, v_end, v_end,
               v_names[1 + (v_i % array_length(v_names, 1))],
-              '+3712' || lpad((1000000 + v_i)::text, 7, '0'),
-              case when v_i % 2 = 0 then 'klients' || v_i || '@example.com' end,
+              -- online bookings: e-mail only; phone bookings (admin): phone, sometimes e-mail
+              case when v_i % 3 = 0 then '+3712' || lpad((1000000 + v_i)::text, 7, '0') end,
+              case when v_i % 3 <> 0 or v_i % 2 = 0 then 'klients' || v_i || '@example.com' end,
               case when v_i % 4 = 0 then 'Pirmo reizi pie jums.' end,
               case when v_i % 3 = 0 then 'admin' else 'online' end);
     end loop;

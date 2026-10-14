@@ -26,7 +26,7 @@ Why this stack:
 6. [Create the admin account](#create-the-admin-account)
 7. [Deploy to Cloudflare (default)](#deploy-to-cloudflare-default)
 8. [Deploy to Netlify (alternative)](#deploy-to-netlify-alternative)
-9. [E-mail and SMS with Brevo (optional)](#e-mail-and-sms-with-brevo-optional)
+9. [E-mail with Resend or Brevo (optional)](#e-mail-with-resend-or-brevo-optional)
 10. [Customize for a new client](#customize-for-a-new-client)
 11. [Tests](#tests)
 12. [How booking safety works](#how-booking-safety-works)
@@ -44,16 +44,16 @@ Why this stack:
 - An informational data notice (the site uses only strictly necessary cookies) and a Latvian privacy-policy template (`/privatuma-politika`).
 
 **Booking** (`/pieteikties`)
-- The customer picks a service, then a master or "Jebkurš brīvais meistars" (any free master), then a date and time, and then enters contact details.
+- The customer picks a service, then a master or "Jebkurš brīvais meistars" (any free master), then a date and time, and then enters a name and **e-mail** (required; no phone number is asked).
 - Free slots are calculated from each master's working hours, the service duration, existing bookings, master blocks, closed days and the booking rules (slot step, buffer, minimum notice, how far ahead).
 - Double booking is impossible: the database refuses overlapping bookings even when two requests arrive at the same moment.
 - A confirmation screen with "add to calendar" (Google Calendar and `.ics`).
-- The confirmation screen shows a cancel link (`/atcelt/<token>`). If a Brevo key is set, the customer also gets it by e-mail and/or SMS, and the owner gets an e-mail copy.
+- The confirmation screen shows a cancel link (`/atcelt/<token>`). With an e-mail provider set up (Resend or Brevo), the customer also gets a confirmation e-mail with the cancel link, and the owner gets a copy.
 - A public free/busy view (`/pieejamiba`) shows which masters are free or busy and when, without any customer data.
 
 **Admin panel** (`/admin`, password protected, works well on phones)
 - Bookings by day or week, filtered by master, with customer details and tap-to-call.
-- Create (e.g. phone bookings), edit, reschedule, cancel, restore and delete bookings, with suggested free times.
+- Create (e.g. phone bookings, where an e-mail or a phone number is enough), edit, reschedule, cancel, restore and delete bookings, with suggested free times.
 - Block the whole salon for days (holidays) or one master for days or time ranges (vacation, sick day, lunch).
 - Manage masters (photo upload, services offered, weekly working hours with a break) and services (duration, price, "no …" ("from …") prices, categories).
 - Booking rules, password change, and GDPR clean-up of old customer data.
@@ -74,7 +74,7 @@ src/
   lib/booking/slots.ts    ← ⚠ slot calculation (pure functions, unit-tested)
   lib/booking/availability.ts ← loads data for the slot calculation
   lib/time.ts             ← Europe/Riga helpers, dd.mm.yyyy / 24h formatting
-  lib/email.ts            ← optional Brevo e-mails
+  lib/email.ts            ← optional e-mails (provider in lib/email-providers.ts: Resend or Brevo)
   middleware.ts           ← protects /admin, security headers
 supabase/
   migrations/             ← database schema, booking functions, RLS, storage
@@ -129,7 +129,9 @@ prefer plain Node.js: `DEPLOY_TARGET=node npm run dev`.
 | `SUPABASE_URL` | yes | Supabase → Project Settings → Data API → Project URL | |
 | `SUPABASE_ANON_KEY` | yes | Supabase → Project Settings → API Keys → `anon` (legacy) or the **publishable** key | Safe for public data; RLS applies. |
 | `SUPABASE_SERVICE_ROLE_KEY` | yes | Same page → `service_role` (legacy) or a **secret** key | **Server only, never share it.** Used only to create bookings and for the cancel link. |
-| `BREVO_API_KEY` | no | Brevo → SMTP & API → API Keys | Leave empty to switch e-mails off. |
+| `EMAIL_PROVIDER` | no | | `resend` or `brevo`. Empty = whichever key below is set (Resend first). |
+| `RESEND_API_KEY` | no | Resend → API Keys | Recommended e-mail provider. |
+| `BREVO_API_KEY` | no | Brevo → SMTP & API → API Keys | Alternative provider. Without any key, e-mails are off. |
 | `SITE_URL` | no | | Overrides `business.siteUrl` for canonical/OG URLs. |
 | `DEPLOY_TARGET` | no | | `cloudflare` (default), `netlify` or `node`. |
 
@@ -203,7 +205,7 @@ commercial use.
    | Build variables | none needed; `.node-version` pins Node 22 |
 
 4. The Worker name in the dashboard **must equal `"name"` in `wrangler.jsonc`** (currently `salon-demo`). Either name the Worker the same, or change `"name"` in `wrangler.jsonc` to your Worker's name and push.
-5. **Settings → Variables and Secrets** (runtime, not "Build variables"): add `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY` and optionally `BREVO_API_KEY`, all with type **Secret**. Then **Deployments → Retry/redeploy** (or push a commit).
+5. **Settings → Variables and Secrets** (runtime, not "Build variables"): add `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY` and optionally `EMAIL_PROVIDER` + `RESEND_API_KEY` (or `BREVO_API_KEY`), all with type **Secret**. Then **Deployments → Retry/redeploy** (or push a commit).
    - The build itself needs no secrets; they are read at runtime.
    - `keep_vars` in `wrangler.jsonc` stops deploys from removing variables you added in the dashboard.
 6. **Settings → Domains & Routes → Add → Custom domain** (e.g. `www.salons.lv`).
@@ -214,7 +216,8 @@ npx wrangler login
 npx wrangler secret put SUPABASE_URL
 npx wrangler secret put SUPABASE_ANON_KEY
 npx wrangler secret put SUPABASE_SERVICE_ROLE_KEY
-npx wrangler secret put BREVO_API_KEY      # optional
+npx wrangler secret put EMAIL_PROVIDER     # optional: resend | brevo
+npx wrangler secret put RESEND_API_KEY     # optional (or BREVO_API_KEY)
 npm run deploy                             # = astro build && wrangler deploy
 ```
 
@@ -243,42 +246,48 @@ Per client, change `"name"` in `wrangler.jsonc` (the Worker name) and
 
 ---
 
-## E-mail and SMS with Brevo (optional)
+## E-mail with Resend or Brevo (optional)
 
-One Brevo account and one `BREVO_API_KEY` cover both e-mail and SMS. Without
-the key, everything works and nothing is sent. The confirmation screen always
-shows the customer a cancel link and tells them to save the details.
+Customers book with their **e-mail** (required). The confirmation e-mail
+contains the cancel link. Without an e-mail provider nothing is sent, the site
+works normally, and the confirmation screen still shows the cancel link.
 
-**E-mail**
-1. Create a free account at [brevo.com](https://www.brevo.com) (EU provider, about 300 e-mails a day free).
-2. **Senders, Domains & Dedicated IPs**: add and verify the sender address or, better, the client's domain (add the DNS records Brevo shows, for good deliverability).
-3. **SMTP & API → API Keys → Generate a new API key**, and set it as `BREVO_API_KEY` (Cloudflare: Settings → Variables and Secrets, type Secret).
-4. In `src/config/business.ts → email`, set `fromAddress` to the verified sender and `ownerNotifyTo` to the owner's address (or `''` for no copies).
+Choose the provider with one environment variable:
 
-**SMS** (uses the same key; SMS are prepaid)
-1. In Brevo, buy SMS credits (**SMS → Buy credits** or the plan page). Without credits Brevo refuses SMS; the site logs it and continues.
-2. In `src/config/business.ts → sms`:
-   - `enabled: true`
-   - `sender`: the name shown on the phone, up to 11 letters or digits (no spaces or diacritics), e.g. `Aurora`
-   - `confirmations`: `'always'`, or `'if-no-email'` to save credits
-   - `plainLetters: true` (recommended): ā→a, š→s… One SMS then holds 160 characters. With Latvian diacritics it holds only 70, so each message costs 2–3 SMS.
-3. The texts are in `src/config/texts.ts → sms`. Keep them short: the cancel link alone is about 70 characters.
+| `EMAIL_PROVIDER` | Key | Notes |
+|---|---|---|
+| `resend` (recommended) | `RESEND_API_KEY` | Free tier: 3,000 e-mails/month (100/day). Works from Cloudflare Workers. |
+| `brevo` | `BREVO_API_KEY` | Free tier: about 300 e-mails/day. Brevo can block API calls from unknown IPs, and Cloudflare Workers have no fixed IP, so you must switch that blocking off. |
+| *(empty)* | whichever is set | Resend if `RESEND_API_KEY` is set, otherwise Brevo. |
 
-SMS go only to mobile numbers. Latvian landlines (6…) are skipped automatically.
+If the chosen provider has no key (or the name is wrong), e-mails are skipped
+and **/admin → Iestatījumi** shows the reason.
+
+**Resend setup**
+1. Create an account at [resend.com](https://resend.com).
+2. **Domains → Add domain** (e.g. `salons.lv`, region EU if offered). Add the DNS records it shows (SPF/DKIM) at the domain's DNS provider and wait for "Verified".
+   - For a quick test without a domain you can use the sender `onboarding@resend.dev`, but Resend then only delivers to your own account e-mail.
+3. **API Keys → Create API key** with "Sending access", and copy it (`re_…`).
+4. Add it to the host as runtime secrets (Cloudflare: Settings → Variables and Secrets, type Secret): `EMAIL_PROVIDER` = `resend` and `RESEND_API_KEY` = `re_…`.
+5. In `src/config/business.ts → email`, set `fromAddress` to an address on the verified domain (e.g. `pieraksti@salons.lv`), `fromName`, and `ownerNotifyTo` (owner's address, or `''` for no copies).
+
+**Brevo setup (alternative)**
+1. Create an account at [brevo.com](https://www.brevo.com) and verify the sender or domain under **Senders, Domains & Dedicated IPs**.
+2. **SMTP & API → API Keys → Generate a new API key**.
+3. **Security → Authorised IPs**: deactivate the blocking of unknown IP addresses. Otherwise Brevo rejects calls from Cloudflare, which has no fixed IP.
+4. Set `EMAIL_PROVIDER` = `brevo` and `BREVO_API_KEY`, and fill `business.ts → email` as above.
 
 **What is sent**
 
-| Event | Customer | Owner |
+| Event | Customer | Owner (`ownerNotifyTo`) |
 |---|---|---|
-| Online booking | e-mail (if given) + SMS with cancel link | e-mail copy |
-| Admin creates a booking with "Nosūtīt klientam apstiprinājumu" ticked | e-mail + SMS with cancel link | – |
-| Admin reschedules with "Paziņot klientam…" ticked | e-mail + SMS with the new time | – |
-| Admin cancels with "Paziņot klientam" ticked | e-mail + SMS | – |
-| Customer cancels via the link | – (the page confirms) | e-mail |
+| Online booking | confirmation with cancel link | copy |
+| Admin creates a booking with "Nosūtīt klientam apstiprinājumu" ticked (customer has e-mail) | confirmation with cancel link | – |
+| Admin reschedules with "Paziņot klientam…" ticked | new time | – |
+| Admin cancels with "Paziņot klientam e-pastā" ticked | cancellation notice | – |
+| Customer cancels via the link | – (the page confirms) | notice |
 
-`/admin/iestatijumi` shows whether e-mail and SMS are switched on.
-
-> Not included yet: a reminder SMS the day before the visit. It needs a scheduled job (Cloudflare Cron Trigger); ask Claude Code to add it if you want it.
+> Not included: a reminder e-mail the day before the visit. It needs a scheduled job (Cloudflare Cron Trigger); ask Claude Code to add it if you want it.
 
 ---
 
@@ -308,7 +317,7 @@ npm run test:db      # database tests against the local Supabase
 The database tests cover:
 - **RLS:** anonymous visitors and logged-in non-admins cannot read customer data or change bookings; admins can.
 - **Double booking:** 12 parallel connections booking the same slot produce exactly one booking. "Any master" requests in parallel get one booking per master. Overlapping times collide correctly.
-- **Booking rules:** working hours, breaks, closed days, blocks, buffer, notice, horizon, per-phone limit, cancel link.
+- **Booking rules:** working hours, breaks, closed days, blocks, buffer, notice, horizon, required e-mail, per-e-mail limit, cancel link.
 - **Parity:** every time the website offers is accepted by the database, and every time it doesn't offer is refused.
 
 ---
@@ -319,14 +328,14 @@ The database tests cover:
 - The booking itself goes through the `create_booking()` Postgres function, called by the server with the service-role key. It re-checks every rule.
 - The `bookings_no_overlap` **exclusion constraint** makes overlapping confirmed bookings of one master impossible at the database level. This also covers admin edits and simultaneous requests.
 - The public cannot read the `bookings` table at all (RLS). The availability view uses `get_public_schedule()`, which returns only time ranges.
-- Spam protection: a honeypot field, a per-IP rate limit, and a maximum number of active future bookings per phone number (a setting).
+- Spam protection: a honeypot field, a per-IP rate limit, and a maximum number of active future bookings per e-mail address (a setting).
 
 ---
 
 ## Privacy / GDPR notes
 
 - The privacy policy (`/privatuma-politika`) is a **template**. Fill in `business.legal`, check the processors list, and have the final text reviewed for each client.
-- Customer data is stored in the EU (Supabase Frankfurt). Sign the data processing agreements (DPA) that Supabase, Cloudflare/Netlify and Brevo offer in their dashboards or terms.
+- Customer data is stored in the EU (Supabase Frankfurt). Sign the data processing agreements (DPA) that Supabase, Cloudflare/Netlify and your e-mail provider (Resend or Brevo) offer in their dashboards or terms.
 - Retention: old bookings can be anonymized in **/admin → Iestatījumi → Dzēst vecos datus** (the period is a setting, 24 months by default). You can automate it with Supabase `pg_cron`: `select cron.schedule('anonymize', '0 3 * * 0', 'select public.anonymize_old_bookings()');`
 - No analytics or marketing cookies are used. If you add any, replace the informational notice with a real consent banner.
 
@@ -339,4 +348,9 @@ The database tests cover:
 - **"Šim meistaram šajā laikā jau ir cits pieraksts"** in the admin panel means the database refused an overlap. Pick another time or master.
 - **The admin login says the password is wrong**, but the password is right: check that the Email provider is enabled in Supabase Auth, and that `create-admin` ran against the same project as the site.
 - **No slots shown:** check the master's working hours, that the master is active and has the service ticked, closed days, and the "minimum notice" setting.
+- **Confirmation e-mails do not arrive:** open **/admin → Iestatījumi**, which shows the active provider or the reason e-mails are off. Then check:
+  - the sender domain is verified with the provider;
+  - `business.email.fromAddress` is on that domain;
+  - the Worker logs (`[email] resend 4xx …`) for the provider's error message;
+  - with Brevo, that IP blocking is off.
 - **Photos do not upload:** check that the migrations ran (they create the `media` bucket). The maximum size is 5 MB, as JPG, PNG, WebP or AVIF.

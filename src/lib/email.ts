@@ -1,41 +1,60 @@
 /**
- * Transactional e-mail via Brevo (https://www.brevo.com). OPTIONAL:
- * if BREVO_API_KEY is not set, every function returns { skipped: true } and
- * the rest of the site works normally. Failures are logged, never thrown.
+ * Transactional e-mail via Resend or Brevo (see ./email-providers.ts).
+ * OPTIONAL: without a provider key every function returns { skipped: true }
+ * and the rest of the site works normally. Failures are logged, never thrown.
  */
-import { BREVO_API_KEY } from 'astro:env/server';
+import { BREVO_API_KEY, EMAIL_PROVIDER, RESEND_API_KEY } from 'astro:env/server';
 import { business } from '../config/business';
+import { buildRequest, chooseProvider, type ProviderChoice } from './email-providers';
+import { formatPhone } from './format';
 import { formatDateWithWeekday, formatDuration, toRigaDate, toRigaTime } from './time';
 
 export type EmailResult = { sent: true } | { sent: false; skipped?: boolean; error?: string };
 
-export function emailEnabled(): boolean {
-  return Boolean(BREVO_API_KEY && business.email.fromAddress);
+const env = () => ({ EMAIL_PROVIDER, RESEND_API_KEY, BREVO_API_KEY });
+
+/** Active provider (or why none), for the admin settings page. */
+export function emailStatus(): ProviderChoice & { fromAddress: string } {
+  const choice = chooseProvider(env());
+  if (choice.provider && !business.email.fromAddress) {
+    return { provider: null, problem: 'business.email.fromAddress is empty', fromAddress: '' };
+  }
+  return { ...choice, fromAddress: business.email.fromAddress };
 }
 
+export function emailEnabled(): boolean {
+  return emailStatus().provider !== null;
+}
+
+let warned = false;
+
 async function send(to: { email: string; name?: string }[], subject: string, html: string, text: string): Promise<EmailResult> {
-  if (!emailEnabled()) return { sent: false, skipped: true };
+  const status = emailStatus();
+  if (!status.provider) {
+    if (status.problem && !warned) {
+      console.warn(`[email] not sent: ${status.problem}`);
+      warned = true;
+    }
+    return { sent: false, skipped: true };
+  }
+  const req = buildRequest(status.provider, env(), {
+    from: { name: business.email.fromName, email: business.email.fromAddress },
+    to,
+    replyTo: { email: business.contact.email, name: business.name },
+    subject,
+    html,
+    text,
+  });
   try {
-    const res = await fetch('https://api.brevo.com/v3/smtp/email', {
-      method: 'POST',
-      headers: { 'api-key': BREVO_API_KEY!, 'content-type': 'application/json', accept: 'application/json' },
-      body: JSON.stringify({
-        sender: { name: business.email.fromName, email: business.email.fromAddress },
-        to,
-        replyTo: { email: business.contact.email, name: business.name },
-        subject,
-        htmlContent: html,
-        textContent: text,
-      }),
-    });
+    const res = await fetch(req.url, req.init);
     if (!res.ok) {
-      const error = `Brevo ${res.status}: ${(await res.text()).slice(0, 300)}`;
+      const error = `${status.provider} ${res.status}: ${(await res.text()).slice(0, 300)}`;
       console.error('[email]', error);
       return { sent: false, error };
     }
     return { sent: true };
   } catch (e) {
-    console.error('[email]', e);
+    console.error('[email]', status.provider, e);
     return { sent: false, error: String(e) };
   }
 }
@@ -46,7 +65,7 @@ const esc = (s: string) =>
 export interface BookingEmailData {
   customerName: string;
   customerEmail?: string | null;
-  customerPhone?: string;
+  customerPhone?: string | null;
   serviceName: string;
   masterName: string;
   startsAt: Date;
@@ -126,12 +145,14 @@ export async function notifyOwner(d: BookingEmailData, kind: 'new' | 'cancelled'
   if (!to) return { sent: false, skipped: true };
   const t = detailsTable(d);
   const title = kind === 'new' ? 'Jauns pieraksts' : 'Klients atcēla pierakstu';
-  const contact = `<p>Klients: <strong>${esc(d.customerName)}</strong><br>Tālrunis: ${esc(d.customerPhone ?? '')}${
-    d.customerEmail ? `<br>E-pasts: ${esc(d.customerEmail)}` : ''
-  }${d.comment ? `<br>Komentārs: ${esc(d.comment)}` : ''}</p>`;
+  const lines: [string, string | null | undefined][] = [
+    ['E-pasts', d.customerEmail],
+    ['Tālrunis', d.customerPhone ? formatPhone(d.customerPhone) : null],
+    ['Komentārs', d.comment],
+  ];
+  const present = lines.filter(([, v]) => v) as [string, string][];
+  const contact = `<p>Klients: <strong>${esc(d.customerName)}</strong>${present.map(([k, v]) => `<br>${esc(k)}: ${esc(v)}`).join('')}</p>`;
   const html = layout(title, `${t.html}${contact}`);
-  const text = `${title}\n\n${t.text}\n\nKlients: ${d.customerName}\nTālrunis: ${d.customerPhone ?? ''}${
-    d.customerEmail ? `\nE-pasts: ${d.customerEmail}` : ''
-  }${d.comment ? `\nKomentārs: ${d.comment}` : ''}`;
+  const text = `${title}\n\n${t.text}\n\nKlients: ${d.customerName}${present.map(([k, v]) => `\n${k}: ${v}`).join('')}`;
   return send([{ email: to }], `${title}: ${d.serviceName}, ${toRigaTime(d.startsAt)} ${formatDateWithWeekday(toRigaDate(d.startsAt))}`, html, text);
 }

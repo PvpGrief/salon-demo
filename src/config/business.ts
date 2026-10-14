@@ -159,37 +159,21 @@ export const business = {
     arrivalNote: 'Lūdzu, ierodieties 5 minūtes pirms noteiktā laika.',
     /** Shown under the booking form and in the e-mail. */
     cancellationPolicy:
-      'Ja nevarat ierasties, lūdzu, atceliet pierakstu vismaz 24 stundas iepriekš – ar saiti apstiprinājumā (e-pastā vai SMS) vai zvanot mums.',
+      'Ja nevarat ierasties, lūdzu, atceliet pierakstu vismaz 24 stundas iepriekš – ar saiti apstiprinājuma e-pastā vai zvanot mums.',
   },
 
-  // --------------------------------------------------------------- e-mail (Brevo, optional)
+  // --------------------------------------------------------------- e-mail (optional)
+  /**
+   * Provider and key are environment variables: EMAIL_PROVIDER=resend|brevo
+   * plus RESEND_API_KEY or BREVO_API_KEY (see README). Without a key no
+   * e-mails are sent and the site works normally.
+   */
   email: {
-    /** Sender must be verified in Brevo (Senders & IP). */
+    /** Must be an address on a domain verified with your provider (Resend: Domains; Brevo: Senders). */
     fromName: 'Salons Aurora',
     fromAddress: 'pieraksti@example.lv',
     /** Owner gets a copy of every new/cancelled booking. Empty = off. */
     ownerNotifyTo: 'info@example.lv',
-  },
-
-  // --------------------------------------------------------------- SMS (Brevo, optional)
-  /**
-   * Text messages to the customer's phone: booking confirmation with the
-   * cancel link, and notices when the admin reschedules or cancels.
-   * Needs BREVO_API_KEY (same key as e-mail) and prepaid SMS credits in Brevo.
-   * Without a key or credits nothing is sent and the site works normally.
-   * Message texts: src/config/texts.ts → sms.
-   */
-  sms: {
-    enabled: true,
-    /** Sender name shown on the phone: max 11 letters/digits, no spaces or diacritics. */
-    sender: 'Aurora',
-    /** 'always' = every online booking; 'if-no-email' = only when the customer gave no e-mail (cheaper). */
-    confirmations: 'always' as 'always' | 'if-no-email',
-    /**
-     * Write ā→a, š→s … in SMS. Plain letters fit 160 characters in one SMS;
-     * with Latvian diacritics one SMS holds only 70, so a message costs 2–3×.
-     */
-    plainLetters: true,
   },
 
   // --------------------------------------------------------------- legal / GDPR
@@ -205,7 +189,9 @@ export const business = {
     processors: [
       { name: 'Supabase, Inc.', purpose: 'datu bāze (dati tiek glabāti Eiropas Savienībā, Frankfurtē, Vācijā)' },
       { name: 'Cloudflare, Inc.', purpose: 'vietnes mitināšana un drošība' },
-      { name: 'Brevo (Sendinblue SAS), Francija', purpose: 'pieraksta apstiprinājumu nosūtīšana e-pastā un īsziņā (SMS)' },
+      // E-mail provider: keep the one you use (EMAIL_PROVIDER).
+      { name: 'Resend, Inc., ASV', purpose: 'pieraksta apstiprinājumu un paziņojumu nosūtīšana e-pastā' },
+      // { name: 'Brevo (Sendinblue SAS), Francija', purpose: 'pieraksta apstiprinājumu un paziņojumu nosūtīšana e-pastā' },
       { name: 'OpenStreetMap Foundation', purpose: 'karte sadaļā „Kontakti” (karte ielādējas no OpenStreetMap serveriem)' },
     ],
   },

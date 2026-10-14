@@ -92,11 +92,17 @@ export async function createFixture(db: pg.Client, label: string): Promise<Fixtu
   };
 }
 
-let phoneCounter = 0;
-/** Unique phone per booking so the per-phone limit never interferes. */
+let counter = 0;
+/** Unique phone number (optional field). */
 export function phone(): string {
-  phoneCounter += 1;
-  return `+3712${String(Date.now() % 1000).padStart(3, '0')}${String(phoneCounter).padStart(4, '0')}`;
+  counter += 1;
+  return `+3712${String(Date.now() % 1000).padStart(3, '0')}${String(counter).padStart(4, '0')}`;
+}
+
+/** Unique e-mail per booking so the per-e-mail limit never interferes. */
+export function email(): string {
+  counter += 1;
+  return `klients-${Date.now()}-${counter}@test.lv`;
 }
 
 export async function createBooking(
@@ -106,7 +112,9 @@ export async function createBooking(
     masterId: string | null;
     startsAt: Date;
     name?: string;
-    phone?: string;
+    /** optional; default none */
+    phone?: string | null;
+    /** required by create_booking; default a unique address, pass null to test the rule */
     email?: string | null;
   },
 ) {
@@ -117,8 +125,8 @@ export async function createBooking(
       args.masterId,
       args.startsAt,
       args.name ?? 'Testa Klients',
-      args.phone ?? phone(),
-      args.email ?? null,
+      args.phone ?? null,
+      'email' in args ? args.email : email(),
     ],
   );
   return res.rows[0] as { id: string; master_id: string; starts_at: Date; ends_at: Date; cancel_token: string };

@@ -13,7 +13,7 @@ Storage). The default host is Cloudflare Workers; Netlify and Node also work
 
 ## Hard rules
 
-1. **All visitor-facing and admin text is Latvian (lv)**, with correct diacritics (ā č ē ģ ī ķ ļ ņ š ū ž). Code comments and docs are English. Exception: SMS are converted to plain letters when `business.sms.plainLetters` is true, to keep them to one SMS each.
+1. **All visitor-facing and admin text is Latvian (lv)**, with correct diacritics (ā č ē ģ ī ķ ļ ņ š ū ž). Code comments and docs are English.
 2. **Time zone is always Europe/Riga.** Store instants as `timestamptz` (UTC). Show dates as `dd.mm.yyyy` and times as 24h `HH:mm`. Use the helpers in `src/lib/time.ts`; never format dates by hand and never use the server's local time.
 3. **Do not change the booking / availability logic unless the user explicitly asks.** Protected files:
    - `src/lib/booking/slots.ts`, `src/lib/booking/availability.ts`
@@ -34,7 +34,7 @@ Storage). The default host is Cloudflare Workers; Netlify and Node also work
 
 | What | Where |
 |---|---|
-| Business name, contacts, opening hours (display), colors, hero/section texts, gallery, reviews, SEO, privacy-policy details, e-mail sender, SMS settings | `src/config/business.ts` |
+| Business name, contacts, opening hours (display), colors, hero/section texts, gallery, reviews, SEO, privacy-policy details, e-mail sender | `src/config/business.ts` |
 | Generic UI texts (buttons, labels, errors) | `src/config/texts.ts` |
 | Services, prices, masters, master photos, working hours, closed days, blocks, booking rules | Database, edited in `/admin` |
 | Demo data | `supabase/seed.sql` |
@@ -55,8 +55,8 @@ src/actions/public.ts              createBooking, cancelBooking
 src/actions/admin.ts               all admin mutations (each checks admin + RLS)
 src/lib/booking/slots.ts           pure slot calculation  ⚠ protected
 src/lib/time.ts                    Riga time helpers
-src/lib/email.ts                   Brevo e-mails (optional; skipped if no key)
-src/lib/sms.ts, sms-text.ts        Brevo SMS (optional; texts in config/texts.ts → sms)
+src/lib/email.ts                   e-mails (optional; skipped if no provider key)
+src/lib/email-providers.ts         Resend / Brevo selection + request format (EMAIL_PROVIDER)
 supabase/migrations/               schema, functions, RLS, storage  ⚠ add new files only
 ```
 
@@ -75,7 +75,8 @@ npm run build             # production build (Cloudflare by default)
 ```
 
 `.env` holds `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`
-and optionally `BREVO_API_KEY`. Get the local values from `npx supabase status`.
+and optionally `EMAIL_PROVIDER` (`resend` | `brevo`) with `RESEND_API_KEY` or
+`BREVO_API_KEY`. Get the local Supabase values from `npx supabase status`.
 
 ## Conventions and gotchas
 
@@ -85,6 +86,8 @@ and optionally `BREVO_API_KEY`. Get the local values from `npx supabase status`.
 - **Forms in `/admin`** are plain HTML forms posting to Astro Actions (`action={actions.admin.x}`). The page reads `Astro.getActionResult()` and redirects with `?ok=<key>`. The flash texts are in `src/layouts/Admin.astro`. Keep the forms working without JavaScript where possible.
 - **Tailwind v4.** Reusable classes (`btn-primary`, `card`, `input`, `label`, `section-title`, …) are defined with `@utility` in `src/styles/global.css`. Use the theme colors `brand`, `accent`, `ink`, `muted`, `line`, `bg`, `surface`; do not hard-code hex colors in components.
 - **Admin time inputs** use `components/admin/TimeSelect.astro` (24h `<select>`), because native `type="time"` can show AM/PM.
+- **Customer contact:** online bookings require an **e-mail** (no phone field). Admin bookings need an e-mail or a phone (`bookings_contact_required`). The "max active bookings" limit counts per e-mail; the settings column is still named `max_active_per_phone`.
+- **E-mail:** `EMAIL_PROVIDER` picks Resend or Brevo (`src/lib/email-providers.ts`). No key means nothing is sent, and a failed send is only logged. Sending must never break a booking. To add a provider, add a request builder there plus a unit test in `tests/unit/email-providers.test.ts`.
 - **Database errors** from booking functions are short codes (`slot_unavailable`, `too_soon`, …), mapped to Latvian in `src/config/texts.ts → errors`.
 - **New database objects** need explicit `grant`s and RLS policies in a new migration. Default privileges for API roles are revoked.
 

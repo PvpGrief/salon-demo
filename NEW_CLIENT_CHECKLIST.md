@@ -32,7 +32,7 @@ you have the client's information.
 - [ ] `gallery` items (paths and Latvian `alt` texts) and `reviews`
 - [ ] `booking.arrivalNote`, `booking.cancellationPolicy` (match the cancel hours in /admin settings)
 - [ ] `email.fromName`, `email.fromAddress`, `email.ownerNotifyTo`
-- [ ] `legal`: company name, registration no., legal address, privacy e-mail, `privacyUpdated` date, and `processors` (remove Brevo if no e-mails; use Netlify instead of Cloudflare if hosting there)
+- [ ] `legal`: company name, registration no., legal address, privacy e-mail, `privacyUpdated` date, and `processors` (keep the e-mail provider you use: Resend or Brevo; Netlify instead of Cloudflare if hosting there)
 
 ## 3. Images (`public/images/`)
 
@@ -54,13 +54,17 @@ static sections.
 - [ ] Put the project's `SUPABASE_URL`, `SUPABASE_ANON_KEY` and `SUPABASE_SERVICE_ROLE_KEY` in `.env`.
 - [ ] `npm run create-admin -- <owner e-mail>` and send the printed password to the owner securely.
 
-## 5. E-mail and SMS (optional, Brevo)
+## 5. E-mail (recommended: Resend)
 
-- [ ] Brevo account: verify the client's domain or sender address, and create an API key.
-- [ ] Set `BREVO_API_KEY` in the hosting environment (Cloudflare: Settings → Variables and Secrets, type Secret).
-- [ ] `business.ts → email`: `fromAddress` (the verified sender) and `ownerNotifyTo`.
-- [ ] SMS: buy SMS credits in Brevo, then in `business.ts → sms` set `enabled`, `sender` (up to 11 letters/digits) and `confirmations` (`'always'` or `'if-no-email'`).
-- [ ] Make a test booking with your own mobile number and e-mail.
+Customers book with their e-mail, and the confirmation e-mail carries the cancel link, so set this up for every real client.
+
+- [ ] Resend account → **Domains** → add the client's domain → add the DNS records → wait for "Verified".
+- [ ] Resend → **API Keys** → create a key with sending access.
+- [ ] Hosting runtime secrets: `EMAIL_PROVIDER` = `resend`, `RESEND_API_KEY` = `re_…`.
+      (Brevo instead: `EMAIL_PROVIDER` = `brevo`, `BREVO_API_KEY`, and turn off "Authorised IPs" blocking in Brevo.)
+- [ ] `business.ts → email`: `fromAddress` on the verified domain (e.g. `pieraksti@domena.lv`), `fromName`, `ownerNotifyTo`.
+- [ ] `business.ts → legal.processors`: keep the line for the provider you use.
+- [ ] Check **/admin → Iestatījumi → E-pasti** shows "Ieslēgti (Resend)".
 
 ## 6. Deploy (Cloudflare Workers)
 
@@ -80,10 +84,10 @@ static sections.
 
 ## 8. Final checks
 
-- [ ] Make a test booking on a phone. Check it appears in /admin and the e-mail arrives (if enabled). Then cancel it with the e-mail link.
+- [ ] Make a test booking on a phone with your own e-mail. Check it appears in /admin and that the confirmation e-mail arrives (also check spam). Then cancel it with the link in the e-mail.
 - [ ] `/pieejamiba` shows the right free and busy times.
 - [ ] `/privatuma-politika` shows the correct company details. Have the text reviewed.
 - [ ] Check the share preview (paste the URL into WhatsApp/Facebook) and the [Rich Results Test](https://search.google.com/test/rich-results).
 - [ ] Submit `https://<domain>/sitemap.xml` in Google Search Console, and create or link the Google Business Profile.
-- [ ] Sign the DPAs (Supabase, Cloudflare/Netlify, Brevo). Decide on backups (Supabase Pro, or a regular `supabase db dump`).
+- [ ] Sign the DPAs (Supabase, Cloudflare/Netlify, Resend or Brevo). Decide on backups (Supabase Pro, or a regular `supabase db dump`).
 - [ ] Hand over to the owner: the admin URL, the login, and how to block days and add phone bookings.

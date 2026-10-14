@@ -18,7 +18,7 @@ import {
   toRigaTime,
   weekdayShort,
 } from '../../lib/time';
-import { isEmail, normalizePhone } from '../../lib/format';
+import { isEmail } from '../../lib/format';
 
 export interface WizardService {
   id: string;
@@ -67,8 +67,6 @@ interface Result {
   startsAt: string;
   endsAt: string;
   emailSent: boolean;
-  smsSent: boolean;
-  phone: string;
   cancelUrl: string;
   email: string | null;
   location: string;
@@ -100,7 +98,7 @@ export default function BookingWizard(props: Props) {
   const [date, setDate] = useState<string | null>(null);
   const [slot, setSlot] = useState<{ time: string; start: string } | null>(null);
 
-  const [form, setForm] = useState({ name: '', phone: '', email: '', comment: '', website: '' });
+  const [form, setForm] = useState({ name: '', email: '', comment: '', website: '' });
   const [touched, setTouched] = useState<Record<string, boolean>>({});
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -202,14 +200,13 @@ export default function BookingWizard(props: Props) {
     go('details');
   }
 
-  const phoneOk = normalizePhone(form.phone) !== null;
-  const emailOk = !form.email.trim() || isEmail(form.email.trim());
+  const emailOk = isEmail(form.email.trim());
   const nameOk = form.name.trim().length >= 2;
-  const formOk = phoneOk && emailOk && nameOk;
+  const formOk = emailOk && nameOk;
 
   async function submit(e: { preventDefault(): void }) {
     e.preventDefault();
-    setTouched({ name: true, phone: true, email: true });
+    setTouched({ name: true, email: true });
     if (!formOk || !service || !slot || submitting) return;
     setSubmitting(true);
     setSubmitError(null);
@@ -218,7 +215,6 @@ export default function BookingWizard(props: Props) {
       masterId: masterId === ANY ? null : masterId,
       startsAt: slot.start,
       name: form.name.trim(),
-      phone: form.phone.trim(),
       email: form.email.trim(),
       comment: form.comment.trim() || undefined,
       website: form.website,
@@ -519,32 +515,18 @@ export default function BookingWizard(props: Props) {
                 />
               </Field>
               <Field
-                id="bk-phone"
-                label={t.booking.phone}
-                hint={t.booking.phoneHint}
-                error={touched.phone && !phoneOk ? (form.phone ? t.booking.invalidPhone : t.booking.required) : null}
+                id="bk-email"
+                label={t.booking.email}
+                hint={t.booking.emailHint}
+                error={touched.email && !emailOk ? (form.email.trim() ? t.booking.invalidEmail : t.booking.required) : null}
               >
-                <input
-                  id="bk-phone"
-                  className="input"
-                  type="tel"
-                  inputMode="tel"
-                  autoComplete="tel"
-                  required
-                  maxLength={30}
-                  value={form.phone}
-                  onChange={(e) => setForm({ ...form, phone: e.target.value })}
-                  onBlur={() => setTouched({ ...touched, phone: true })}
-                  aria-invalid={touched.phone && !phoneOk}
-                />
-              </Field>
-              <Field id="bk-email" label={t.booking.email} hint={t.booking.emailHint} error={touched.email && !emailOk ? t.booking.invalidEmail : null}>
                 <input
                   id="bk-email"
                   className="input"
                   type="email"
                   inputMode="email"
                   autoComplete="email"
+                  required
                   maxLength={254}
                   value={form.email}
                   onChange={(e) => setForm({ ...form, email: e.target.value })}
@@ -623,12 +605,7 @@ export default function BookingWizard(props: Props) {
                   {t.booking.successEmail} <strong className="text-ink">{result.email}</strong>.
                 </p>
               )}
-              {result.smsSent && (
-                <p>
-                  {t.booking.successSms} <strong className="text-ink">{result.phone}</strong>.
-                </p>
-              )}
-              {!result.emailSent && !result.smsSent && <p>{t.booking.successNoEmail}</p>}
+              {!result.emailSent && <p>{t.booking.successNoEmail}</p>}
             </div>
             <p className="mt-2 text-sm text-muted">{props.arrivalNote}</p>
             <CalendarLinks result={result} businessName={props.businessName} />
