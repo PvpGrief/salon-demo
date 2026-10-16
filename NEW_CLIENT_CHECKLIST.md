@@ -22,6 +22,8 @@ you have the client's information.
 
 ## 2. Content and branding (`src/config/business.ts`)
 
+Every value marked `DEMO` in the file is fictional; replace all of them (search for "DEMO").
+
 - [ ] `name`, `shortName`, `siteUrl` (the final domain, `https://…`, no trailing slash)
 - [ ] `contact`: phone, email, address, `geo` (lat/lng from openstreetmap.org), `directionsNote`
 - [ ] `openingHours` (shown on the site; bookable times come from each master's hours in /admin)

@@ -19,8 +19,11 @@ export const business = {
   // --------------------------------------------------------------- identity
   name: 'Skaistumkopšanas salons Aurora',
   shortName: 'Aurora',
-  /** Production URL without trailing slash (used for SEO, sitemap, e-mails). */
-  siteUrl: 'https://www.example.lv',
+  /**
+   * Production URL without trailing slash (canonical URLs, sitemap, Open Graph).
+   * DEMO: fictional domain. For a demo on *.workers.dev set SITE_URL instead.
+   */
+  siteUrl: 'https://www.salonsaurora.lv',
   logo: {
     src: '/images/logo.svg',
     alt: 'Aurora logotips',
@@ -30,20 +33,24 @@ export const business = {
   favicon: '/favicon.svg',
 
   // --------------------------------------------------------------- contacts
+  // DEMO values below are fictional – replace all of them per client.
   contact: {
-    phone: '+371 20 000 000',
-    email: 'info@example.lv',
+    phone: '+371 67 280 415',
+    email: 'info@salonsaurora.lv',
     address: {
-      street: 'Brīvības iela 100',
+      street: 'Tērbatas iela 10',
       city: 'Rīga',
-      postalCode: 'LV-1001',
+      postalCode: 'LV-1011',
       country: 'LV',
     },
-    /** Map pin (find on openstreetmap.org → right-click → "Show address"). */
-    geo: { lat: 56.9589, lng: 24.1255 },
+    /**
+     * Map pin. DEMO: approximate, near Vērmanes dārzs. Per client: openstreetmap.org →
+     * search the address → right-click the building → "Show address" → copy lat/lng.
+     */
+    geo: { lat: 56.9549, lng: 24.1213 },
     mapZoom: 16,
     /** Optional extra line under the address, e.g. parking info. */
-    directionsNote: 'Ieeja no pagalma, 2. stāvs. Bezmaksas stāvvieta sētā.',
+    directionsNote: 'Ieeja no Tērbatas ielas, 2. stāvs. Tuvākā stāvvieta – Ģertrūdes ielā.',
   },
 
   /**
@@ -56,10 +63,11 @@ export const business = {
     { days: [6], opens: '10:00', closes: '16:00' },
   ],
 
+  /** Full profile URLs. Empty string '' hides a link. DEMO: fictional handles. */
   social: {
-    instagram: 'https://www.instagram.com/',
-    facebook: 'https://www.facebook.com/',
-    tiktok: '',
+    instagram: 'https://www.instagram.com/salonsaurora.riga',
+    facebook: 'https://www.facebook.com/salonsaurora.riga',
+    tiktok: 'https://www.tiktok.com/@salonsaurora',
   },
 
   // --------------------------------------------------------------- design
@@ -171,18 +179,23 @@ export const business = {
   email: {
     /** Must be an address on a domain verified with your provider (Resend: Domains; Brevo: Senders). */
     fromName: 'Salons Aurora',
-    fromAddress: 'pieraksti@example.lv',
-    /** Owner gets a copy of every new/cancelled booking. Empty = off. */
-    ownerNotifyTo: 'info@example.lv',
+    fromAddress: 'pieraksti@salonsaurora.lv',
+    /**
+     * Owner gets a copy of every new/cancelled booking (customer name + e-mail). Empty = off.
+     * DEMO: off on purpose – a fictional address could belong to a stranger.
+     * Set your own address to test, and the owner's address per client.
+     */
+    ownerNotifyTo: '',
   },
 
   // --------------------------------------------------------------- legal / GDPR
   legal: {
     /** Data controller shown in the privacy policy. */
-    companyName: 'SIA "Aurora Beauty"',
-    registrationNumber: '40000000000',
-    legalAddress: 'Brīvības iela 100, Rīga, LV-1001',
-    privacyEmail: 'info@example.lv',
+    /** DEMO: fictional company and registration number. */
+    companyName: 'SIA "Aurora Beauty Studio"',
+    registrationNumber: '40203456789',
+    legalAddress: 'Tērbatas iela 10, Rīga, LV-1011',
+    privacyEmail: 'info@salonsaurora.lv',
     /** Date the privacy policy was last updated (YYYY-MM-DD). */
     privacyUpdated: '2026-10-11',
     /** Service providers listed in the privacy policy. Remove ones you do not use. */
